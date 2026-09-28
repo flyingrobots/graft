@@ -26,9 +26,11 @@ import type {
   WorkspaceStatus,
 } from "./workspace-router-model.js";
 import type {
+  WarpPoolWorkspace,
   WarpResidentLease,
   WarpResidentPool,
 } from "./warp-pool.js";
+import type { WarpSidecarLocation } from "../warp/sidecar.js";
 
 export interface WorkspaceSlice {
   readonly sliceId: string;
@@ -53,13 +55,14 @@ export interface BoundWorkspace {
   readonly resolvePath: (input: string) => string;
   readonly capabilityProfile: WorkspaceCapabilityProfile;
   readonly warpWriterId: string;
+  readonly warpGraphRoot: string;
+  readonly warpSidecarRepo: string;
   readonly transportSessionId: string;
   readonly slice: WorkspaceSlice;
 }
 
 export function createWorkspaceWarpLease(input: {
-  readonly repoId: string;
-  readonly worktreeRoot: string;
+  readonly workspace: WarpPoolWorkspace;
   readonly writerId: string;
   readonly ownerId: string;
   readonly warpPool: WarpResidentPool;
@@ -74,8 +77,8 @@ export function createWorkspaceWarpLease(input: {
         throw new Error("workspace WARP lease has already been released");
       }
       const currentLease = leasePromise ?? input.warpPool.acquire({
-        key: { repoId: input.repoId, writerId: input.writerId },
-        worktreeRoot: input.worktreeRoot,
+        workspace: input.workspace,
+        writerId: input.writerId,
         ownerId: input.ownerId,
       });
       leasePromise = currentLease;
@@ -135,6 +138,7 @@ export async function createBoundWorkspace(input: {
   readonly fs: FileSystem;
   readonly transportSessionId: string;
   readonly warpWriterId: string;
+  readonly warpLocation: WarpSidecarLocation;
 }): Promise<BoundWorkspace> {
   if (input.actionName !== undefined) {
     input.slice.governor.recordMessage();
@@ -148,6 +152,8 @@ export async function createBoundWorkspace(input: {
     capabilityProfile: input.capabilityProfile,
     transportSessionId: input.transportSessionId,
     warpWriterId: input.warpWriterId,
+    warpGraphRoot: input.warpLocation.graphRoot,
+    warpSidecarRepo: input.warpLocation.repoPath,
     slice: input.slice,
   };
 }

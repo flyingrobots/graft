@@ -1,7 +1,5 @@
 import { z } from "zod";
-import { nodeGit } from "../adapters/node-git.js";
-import { resolveWorkspaceRequest } from "../mcp/workspace-router.js";
-import { openWarp } from "../warp/open.js";
+import { openCliWarp } from "./warp-sidecar.js";
 
 export const DEFAULT_LOCAL_HISTORY_DAG_LIMIT = 12;
 
@@ -402,13 +400,13 @@ export function buildLocalHistoryDagModelFromObservedGraph(input: {
 export async function loadLocalHistoryDagModel(options: {
   readonly cwd: string;
   readonly limit: number;
+  readonly graphRoot?: string | undefined;
 }): Promise<LocalHistoryDagModel> {
-  const resolved = await resolveWorkspaceRequest(nodeGit, { cwd: options.cwd });
-  if ("code" in resolved) {
-    throw new Error(resolved.message);
-  }
-
-  const warp = await openWarp({ cwd: options.cwd });
+  const opened = await openCliWarp({
+    cwd: options.cwd,
+    ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+  });
+  const { app: warp, workspace: resolved } = opened;
   const observer = await warp.observer({
     match: [...LOCAL_HISTORY_OBSERVER_MATCH],
     expose: [...LOCAL_HISTORY_OBSERVER_EXPOSE],

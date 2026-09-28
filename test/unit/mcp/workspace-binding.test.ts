@@ -8,18 +8,33 @@ import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
 import { RepoStateTracker } from "../../../src/mcp/repo-state.js";
-import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
+import { createGraftServer } from "../../../src/mcp/server.js";
 import {
   DEFAULT_DAEMON_CAPABILITY_PROFILE,
+  resolveWorkspaceRequest,
   type WorkspaceCapabilityProfile,
   WorkspaceRouteUnauthorizedError,
   WorkspaceRouter,
 } from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
+import { resolveWarpSidecarLocation, type WarpSidecarOpenOptions } from "../../../src/warp/sidecar.js";
+import { buildSessionWarpWriterId } from "../../../src/warp/writer-id.js";
 import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
+import { fakeSidecarWarpPool, sidecarServesWorktree } from "../../helpers/warp-pool.js";
 
 const cleanups: (() => void)[] = [];
+
+function fakeWarpLocation(graftDir: string) {
+  const repoPath = path.join(graftDir, "graphs", "warp.git");
+  return {
+    graphRoot: path.dirname(repoPath),
+    projectDir: path.dirname(repoPath),
+    worktreeDir: path.dirname(repoPath),
+    actorDir: path.dirname(repoPath),
+    repoPath,
+  };
+}
 
 afterEach(() => {
   while (cleanups.length > 0) {
@@ -120,6 +135,42 @@ class GatedRouteDirectoryFileSystem extends AsyncNoSyncFileSystem {
 }
 
 describe("mcp: daemon workspace binding", () => {
+  it("canonicalizes a repo-local startup alias into the same worktree identity and sidecar", async () => {
+    const repoDir = createCommittedRepo();
+    const aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-workspace-alias-"));
+    const stateRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-workspace-alias-state-"));
+    cleanups.push(() => {
+      fs.rmSync(aliasRoot, { recursive: true, force: true });
+      fs.rmSync(stateRoot, { recursive: true, force: true });
+    });
+    const alias = path.join(aliasRoot, "repo-alias");
+    fs.symlinkSync(repoDir, alias, "dir");
+    const sessionId = "canonical-alias-session";
+    const graphRoot = path.join(stateRoot, "graphs");
+    const server = createGraftServer({
+      sessionId,
+      projectRoot: alias,
+      graftDir: path.join(stateRoot, "state"),
+      graphRoot,
+    });
+
+    await server.callTool("safe_read", { path: "app.ts" });
+    await server.callTool("safe_read", { cwd: repoDir, path: "app.ts" });
+
+    const resolved = await resolveWorkspaceRequest(nodeGit, { cwd: alias });
+    if ("code" in resolved) throw new Error(resolved.message);
+    expect(server.getWorkspaceStatus()).toEqual(expect.objectContaining({
+      repoId: resolved.repoId,
+      worktreeId: resolved.worktreeId,
+      worktreeRoot: resolved.worktreeRoot,
+    }));
+    const location = resolveWarpSidecarLocation(graphRoot, {
+      ...resolved,
+      writerId: buildSessionWarpWriterId(sessionId),
+    });
+    expect(fs.readdirSync(location.projectDir)).toEqual([path.basename(location.worktreeDir)]);
+  });
+
   it("starts unbound and reports daemon workspace status", async () => {
     const server = createManagedDaemonServer(cleanups);
     const status = parse(await server.callTool("workspace_status", {}));
@@ -206,6 +257,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
@@ -219,6 +273,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(capabilityProfile);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(capabilityProfile);
         },
         noteBound(): Promise<void> {
@@ -257,6 +314,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace routed race test"));
         },
@@ -270,6 +330,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {
@@ -312,6 +375,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace replacement test"));
         },
@@ -325,6 +391,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {
@@ -360,7 +429,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
@@ -374,6 +443,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -407,7 +479,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     let authorized = true;
@@ -422,6 +494,11 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(authorized ? DEFAULT_DAEMON_CAPABILITY_PROFILE : null);
+        },
+        ensureCapabilityProfile(resolved) {
+          return authorized
+            ? Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE)
+            : Promise.reject(new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -448,6 +525,58 @@ describe("mcp: daemon workspace binding", () => {
     expect(pool.size()).toBe(0);
   });
 
+  // Oracle: a refused authorization discards the cached routed binding, so the
+  // next admitted call starts a fresh workspace slice rather than reviving the
+  // refused one's governor and cache state.
+  it("discards a cached routed binding when automatic authorization fails", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-auto-open-refusal-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    }, { maxIdleResidents: 0, maxResidents: 64 });
+    const refusal = new Error("injected authorization persistence failure");
+    let authorized = true;
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(authorized ? DEFAULT_DAEMON_CAPABILITY_PROFILE : null);
+        },
+        ensureCapabilityProfile() {
+          return authorized ? Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE) : Promise.reject(refusal);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const first = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    await first.releaseWarpLease();
+
+    authorized = false;
+    await expect(router.captureExecutionContextForWorkspace({ cwd: repoDir })).rejects.toBe(refusal);
+
+    authorized = true;
+    const readmitted = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    await readmitted.releaseWarpLease();
+    expect(readmitted.sliceId).not.toBe(first.sliceId);
+  });
+
   it("leaves no resident when routed repo-state initialization fails", async () => {
     const repoDir = createCommittedRepo();
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-init-failure-"));
@@ -456,7 +585,7 @@ describe("mcp: daemon workspace binding", () => {
     });
     const initializationError = new Error("injected routed repo-state initialization failure");
     vi.spyOn(RepoStateTracker.prototype, "initialize").mockRejectedValue(initializationError);
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
@@ -470,6 +599,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -504,10 +636,10 @@ describe("mcp: daemon workspace binding", () => {
     });
     history.noteBindingDeparture = () => Promise.resolve();
     history.noteBinding = () => Promise.reject(initializationError);
-    const openWarp = vi.fn((_worktreeRoot: string, writerId: string) => {
+    const openSidecar = vi.fn(({ writerId }: WarpSidecarOpenOptions) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     });
-    const pool = new InMemoryWarpPool(openWarp, { maxIdleResidents: 0, maxResidents: 64 });
+    const pool = fakeSidecarWarpPool(openSidecar, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "repo_local",
       projectRoot: repoDir,
@@ -541,6 +673,9 @@ describe("mcp: daemon workspace binding", () => {
       git: nodeGit,
       graftDir,
       warpPool: {
+        locationFor() {
+          return fakeWarpLocation(graftDir);
+        },
         acquire(): Promise<never> {
           return Promise.reject(new Error("unused in workspace binding test"));
         },
@@ -554,6 +689,9 @@ describe("mcp: daemon workspace binding", () => {
       transportSessionId: "transport:test",
       authorizationPolicy: {
         getCapabilityProfile() {
+          return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
         noteBound(): Promise<void> {
@@ -641,7 +779,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
@@ -655,6 +793,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -706,13 +847,10 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const openedRoots: string[] = [];
-    const pool = new InMemoryWarpPool((worktreeRoot, writerId) => {
-      openedRoots.push(worktreeRoot);
-      if (!fs.existsSync(worktreeRoot)) {
-        return Promise.reject(new Error(`missing WARP worktree root: ${worktreeRoot}`));
-      }
-      return Promise.resolve({ worktreeRoot, writerId } as unknown as WarpApp);
+    const openedSidecars: string[] = [];
+    const pool = fakeSidecarWarpPool(({ sidecarRepo, writerId }) => {
+      openedSidecars.push(sidecarRepo);
+      return Promise.resolve({ sidecarRepo, writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
       mode: "daemon",
@@ -725,6 +863,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -745,14 +886,12 @@ describe("mcp: daemon workspace binding", () => {
     fs.rmSync(previousWorktree, { recursive: true, force: true });
 
     await router.withWarp((warp) => {
-      expect(warp.app).toEqual(expect.objectContaining({
-        worktreeRoot: fs.realpathSync(repoDir),
-        writerId: "writer:test",
-      }));
+      expect(warp.app).toEqual(expect.objectContaining({ writerId: "writer:test" }));
       return Promise.resolve();
     });
 
-    expect(openedRoots).toEqual([fs.realpathSync(repoDir)]);
+    expect(openedSidecars).toHaveLength(1);
+    expect(sidecarServesWorktree(openedSidecars[0]!, fs.realpathSync(repoDir))).toBe(true);
   });
 
   it("releases every displaced resident after concurrent cross-repository rebinds", async () => {
@@ -763,7 +902,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const history = new PersistedLocalHistoryStore({
@@ -801,6 +940,9 @@ describe("mcp: daemon workspace binding", () => {
           }
           return concurrentProfiles.then(() => DEFAULT_DAEMON_CAPABILITY_PROFILE);
         },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
+        },
         noteBound(): Promise<void> {
           return Promise.resolve();
         },
@@ -831,7 +973,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
@@ -845,6 +987,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -880,7 +1025,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const history = new PersistedLocalHistoryStore({
@@ -942,7 +1087,7 @@ describe("mcp: daemon workspace binding", () => {
     cleanups.push(() => {
       fs.rmSync(graftDir, { recursive: true, force: true });
     });
-    const pool = new InMemoryWarpPool((_worktreeRoot, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
@@ -956,6 +1101,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -1005,9 +1153,9 @@ describe("mcp: daemon workspace binding", () => {
       historyBindings++;
       return historyBindings === 1 ? Promise.resolve() : Promise.reject(bindError);
     };
-    const openedWorktreeRoots: string[] = [];
-    const pool = new InMemoryWarpPool((worktreeRoot, writerId) => {
-      openedWorktreeRoots.push(worktreeRoot);
+    const openedSidecars: string[] = [];
+    const pool = fakeSidecarWarpPool(({ sidecarRepo, writerId }) => {
+      openedSidecars.push(sidecarRepo);
       return Promise.resolve({ writerId } as unknown as WarpApp);
     }, { maxIdleResidents: 0, maxResidents: 64 });
     const router = new WorkspaceRouter({
@@ -1021,6 +1169,9 @@ describe("mcp: daemon workspace binding", () => {
       authorizationPolicy: {
         getCapabilityProfile() {
           return Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE);
+        },
+        ensureCapabilityProfile(): Promise<never> {
+          return Promise.reject(new Error("unexpected automatic workspace authorization"));
         },
         noteBound(): Promise<void> {
           return Promise.resolve();
@@ -1038,7 +1189,7 @@ describe("mcp: daemon workspace binding", () => {
     expect(router.getStatus().repoId).toBe(first.repoId);
     expect(pool.size()).toBe(0);
     expect(pool.leaseCount(first.repoId!, "writer:test")).toBe(0);
-    expect(openedWorktreeRoots).toContain(fs.realpathSync(secondRepoDir));
+    expect(openedSidecars.some((sidecar) => sidecarServesWorktree(sidecar, fs.realpathSync(secondRepoDir)))).toBe(true);
   });
 
   it("denies run_capture in daemon mode after bind", async () => {

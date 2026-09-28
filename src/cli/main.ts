@@ -37,6 +37,7 @@ export { resolveEntrypointArgs } from "./command-parser.js";
 
 export interface RunCliOptions {
   cwd?: string | undefined;
+  graphRoot?: string | undefined;
   args?: readonly string[] | undefined;
   stdout?: Writer | undefined;
   stderr?: Writer | undefined;
@@ -148,7 +149,14 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
   }
 
   if (argv[0] === "index") {
-    await runIndex({ cwd, args: argv.slice(1), stdout, stderr, exit: options.exit });
+    await runIndex({
+      cwd,
+      args: argv.slice(1),
+      stdout,
+      stderr,
+      exit: options.exit,
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+    });
     return;
   }
 
@@ -200,6 +208,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         stderr,
+        ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
       });
       return;
     }
@@ -210,6 +219,7 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
         json: parsed.json,
         stdout,
         stderr,
+        ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
       });
       return;
     }
@@ -244,7 +254,9 @@ export async function runCli(options: RunCliOptions = {}): Promise<void> {
     if (tool === null) {
       throw new Error(`Command ${cliCommandKey(cliCommandPath(parsed.command))} has no MCP peer`);
     }
-    const result = await invokePeerCommand(cwd, tool, parsed.args);
+    const result = await invokePeerCommand(cwd, tool, parsed.args, {
+      ...(options.graphRoot !== undefined ? { graphRoot: options.graphRoot } : {}),
+    });
     emitPeerCommand(parsed.command, result, parsed.json, stdout);
   } catch (err: unknown) {
     process.exitCode = 1;

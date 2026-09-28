@@ -48,7 +48,7 @@ import type { FileSystem } from "../ports/filesystem.js";
 import type { GitClient } from "../ports/git.js";
 import type { WarpContext } from "../warp/context.js";
 import type { JsonObject } from "../contracts/json-object.js";
-import type { WarpResidentPool } from "./warp-pool.js";
+import { warpPoolWorkspace, type WarpResidentPool } from "./warp-pool.js";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import { GovernorTracker } from "../session/tracker.js";
 import {
@@ -198,8 +198,8 @@ export class WorkspaceRouter {
           }
         : {
             repoId: resolved.repoId,
-            worktreeId: stableWorkspaceId("worktree", projectRoot),
-            worktreeRoot: projectRoot,
+            worktreeId: resolved.worktreeId,
+            worktreeRoot: resolved.worktreeRoot,
             gitCommonDir: resolved.gitCommonDir,
           };
       const currentBinding = await this.createBoundWorkspace(
@@ -341,9 +341,12 @@ export class WorkspaceRouter {
       };
     }
 
-    const capabilityProfile = this.options.mode === "repo_local"
+    let capabilityProfile = this.options.mode === "repo_local"
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null && this.options.mode === "daemon") {
+      capabilityProfile = (await this.options.authorizationPolicy?.ensureCapabilityProfile(resolved)) ?? null;
+    }
     if (capabilityProfile === null) {
       return {
         ok: false,
@@ -617,24 +620,19 @@ export class WorkspaceRouter {
       worktreeId: resolved.worktreeId,
     });
 
-    const capabilityProfile = this.options.mode === "repo_local"
+    let capabilityProfile = this.options.mode === "repo_local"
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
+    if (capabilityProfile === null && this.options.mode === "daemon") {
+      try {
+        capabilityProfile = (await this.options.authorizationPolicy?.ensureCapabilityProfile(resolved)) ?? null;
+      } catch (error) {
+        await this.discardRoutedBinding(resolved.worktreeId);
+        throw error;
+      }
+    }
     if (capabilityProfile === null) {
-      const cached = this.routedBindings.get(resolved.worktreeId);
-      if (cached !== undefined) {
-        this.disposeRoutedBinding(cached);
-      }
-      const initializing = this.routedBindingInitializations.get(resolved.worktreeId);
-      if (initializing !== undefined) {
-        if (this.routedBindingInitializations.get(resolved.worktreeId) === initializing) {
-          this.routedBindingInitializations.delete(resolved.worktreeId);
-        }
-        const initialized = await initializing.catch(() => null);
-        if (initialized !== null && initialized !== cached) {
-          this.disposeRoutedBinding(initialized);
-        }
-      }
+      await this.discardRoutedBinding(resolved.worktreeId);
       throw new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot);
     }
 
@@ -729,6 +727,24 @@ export class WorkspaceRouter {
     }
   }
 
+  /** Drops cached and in-flight routed state for a worktree whose authorization was refused. */
+  private async discardRoutedBinding(worktreeId: string): Promise<void> {
+    const cached = this.routedBindings.get(worktreeId);
+    if (cached !== undefined) {
+      this.disposeRoutedBinding(cached);
+    }
+    const initializing = this.routedBindingInitializations.get(worktreeId);
+    if (initializing !== undefined) {
+      if (this.routedBindingInitializations.get(worktreeId) === initializing) {
+        this.routedBindingInitializations.delete(worktreeId);
+      }
+      const initialized = await initializing.catch(() => null);
+      if (initialized !== null && initialized !== cached) {
+        this.disposeRoutedBinding(initialized);
+      }
+    }
+  }
+
   private disposeRoutedBinding(binding: BoundWorkspace): void {
     if (this.routedBindings.get(binding.worktreeId) === binding) {
       this.routedBindings.delete(binding.worktreeId);
@@ -747,8 +763,7 @@ export class WorkspaceRouter {
       throw new WorkspaceBindingRequiredError("workspace");
     }
     const warpLease = createWorkspaceWarpLease({
-      repoId: binding.repoId,
-      worktreeRoot: binding.worktreeRoot,
+      workspace: warpPoolWorkspace(binding),
       writerId: binding.warpWriterId,
       ownerId: [
         binding.transportSessionId,
@@ -769,6 +784,8 @@ export class WorkspaceRouter {
       resolvePath: binding.resolvePath,
       capabilityProfile: binding.capabilityProfile,
       warpWriterId: binding.warpWriterId,
+      warpGraphRoot: binding.warpGraphRoot,
+      warpSidecarRepo: binding.warpSidecarRepo,
       getCausalContext: (observation) => {
         return this.buildCausalContext(binding, observation ?? repoState.getState());
       },
@@ -977,6 +994,7 @@ export class WorkspaceRouter {
       nextSliceId: `slice-${String(++this.sliceIdCounter).padStart(4, "0")}`,
     });
     if (this.warpLeaseRelease !== null) throw new Error("workspace graph admission has closed");
+    const warpWriterId = this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID;
     return createBoundWorkspace({
       resolved,
       graftDir,
@@ -985,7 +1003,8 @@ export class WorkspaceRouter {
       slice,
       fs: this.options.fs,
       transportSessionId: this.options.transportSessionId,
-      warpWriterId: this.options.warpWriterId ?? DEFAULT_WARP_WRITER_ID,
+      warpWriterId,
+      warpLocation: this.options.warpPool.locationFor(warpPoolWorkspace(resolved), warpWriterId),
     });
   }
 
@@ -1165,8 +1184,7 @@ export class WorkspaceRouter {
     if (this.warpLeaseRelease !== null) throw new Error("workspace graph admission has closed");
     if (binding === null || this.options.persistedLocalHistoryGraph === false) return operation(null);
     const lease = createWorkspaceWarpLease({
-      repoId: binding.repoId,
-      worktreeRoot: binding.worktreeRoot,
+      workspace: warpPoolWorkspace(binding),
       writerId: binding.warpWriterId,
       ownerId: binding.transportSessionId + ":history:" + String(++this.executionCounter),
       warpPool: this.options.warpPool,

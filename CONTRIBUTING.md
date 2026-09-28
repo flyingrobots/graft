@@ -47,8 +47,8 @@ pnpm test
 
 `pnpm test` is intentionally Docker-isolated. It builds the repository
 into a copy-in test image with `.git` excluded from the Docker context,
-then runs Vitest inside that container. Use `pnpm test:local` only for
-explicit host-side debugging.
+then runs Vitest inside that container. No supported package script runs
+the suite against the host checkout.
 
 ## Before submitting a PR
 

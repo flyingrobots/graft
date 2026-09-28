@@ -6,6 +6,7 @@ import { graftRootPath, graftRootPipeKey, InvalidGraftRootPathError } from "../.
 import { parseDaemonInspect } from "../../../src/cli/daemon-inspect.js";
 import { defaultDaemonRoot, resolveSocketPath } from "../../../src/mcp/daemon-bootstrap.js";
 import { ensureDaemonReady } from "../../../src/mcp/daemon-stdio-bridge.js";
+import { defaultWarpGraphRoot, resolveWarpGraphRoot } from "../../../src/warp/sidecar.js";
 import { graftTestRoot, homeBeforeSetup } from "../../setup-graft-root.js";
 
 // Promise: Graft finds its per-user root from GRAFT_ROOT_PATH, and only falls
@@ -44,6 +45,15 @@ describe("Graft root path", () => {
   it("derives the default daemon root from the Graft root", () => {
     expect(defaultDaemonRoot(graftRootPath({ GRAFT_ROOT_PATH: "/srv/graft" }, () => HOME))).toBe(path.join("/srv/graft", "daemon"));
     expect(defaultDaemonRoot(graftRootPath({}, () => HOME))).toBe(path.join(HOME, ".graft", "daemon"));
+  });
+
+  it("derives the default WARP graph root from the Graft root", () => {
+    // Oracle: the documented layout, <graft root>/graphs, which is ~/.graft/graphs
+    // while GRAFT_ROOT_PATH is unset, as before the variable existed.
+    expect(defaultWarpGraphRoot(graftRootPath({ GRAFT_ROOT_PATH: "/srv/graft" }, () => HOME))).toBe(path.join("/srv/graft", "graphs"));
+    expect(defaultWarpGraphRoot(graftRootPath({}, () => HOME))).toBe(path.join(HOME, ".graft", "graphs"));
+    expect(resolveWarpGraphRoot(undefined, { GRAFT_ROOT_PATH: "/srv/graft" })).toBe(path.join("/srv/graft", "graphs"));
+    expect(resolveWarpGraphRoot("/srv/explicit", { GRAFT_ROOT_PATH: "/srv/graft" })).toBe("/srv/explicit");
   });
 
   it("keeps the Windows pipe name of an unset root, so existing daemons are still found", () => {
@@ -111,6 +121,7 @@ describe("test harness: Graft root isolation", () => {
     // inside the user profile.
     expect(graftRootPath()).toBe(graftTestRoot);
     expect(defaultDaemonRoot()).toBe(path.join(graftTestRoot, "daemon"));
+    expect(defaultWarpGraphRoot()).toBe(path.join(graftTestRoot, "graphs"));
   });
 });
 
@@ -141,6 +152,8 @@ describe("per-user defaults with GRAFT_ROOT_PATH set", () => {
       "resolveSocketPath (unix)": resolveSocketPath(undefined, defaultDaemonRoot(), undefined, { platform: "linux" }),
       "graft daemon inspect": parseDaemonInspect(cwd, []).socketPath,
       ensureDaemonReady: await ensureDaemonReady({ spawnIfMissing: false, healthCheck: () => Promise.resolve(true) }),
+      defaultWarpGraphRoot: defaultWarpGraphRoot(),
+      resolveWarpGraphRoot: resolveWarpGraphRoot(),
     };
     const windowsPipe = resolveSocketPath(undefined, "unused", undefined, {
       platform: "win32",
@@ -154,6 +167,6 @@ describe("per-user defaults with GRAFT_ROOT_PATH set", () => {
       const relative = path.relative(graftTestRoot, value);
       expect(relative.startsWith("..") || path.isAbsolute(relative), `${entryPoint}: ${value}`).toBe(false);
     }
-    expect(Object.keys(underRoot)).toHaveLength(5);
+    expect(Object.keys(underRoot)).toHaveLength(7);
   });
 });

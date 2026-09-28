@@ -11,7 +11,6 @@ import { nodeProcessRunner } from "../adapters/node-process-runner.js";
 import type { ProcessRunner } from "../ports/process-runner.js";
 import { nodeGit } from "../adapters/node-git.js";
 import type { GitClient } from "../ports/git.js";
-import { openWarp } from "../warp/open.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import { resolveRunCaptureConfig } from "./run-capture-config.js";
 import {
@@ -32,6 +31,7 @@ import {
 } from "./runtime-observability.js";
 import { InMemoryWarpPool, resolveWarpPoolOptions, type WarpResidentPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
+import { resolveWarpGraphRoot } from "../warp/sidecar.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
 import { GRAFT_VERSION } from "../version.js";
 import { ALL_TOOL_REGISTRY, TOOL_REGISTRY } from "./tool-registry.js";
@@ -62,6 +62,7 @@ export interface CreateGraftServerOptions {
   sessionId?: string;
   projectRoot?: string;
   graftDir?: string;
+  graphRoot?: string;
   env?: Readonly<Record<string, string | undefined>>;
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
@@ -82,6 +83,7 @@ interface ResolvedGraftServerConfig {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly projectRoot: string | undefined;
   readonly graftDir: string;
+  readonly graphRoot: string;
   readonly sessionWarpWriterId: string | undefined;
 }
 
@@ -108,9 +110,7 @@ function resolveGraftServerConfig(
 ): ResolvedGraftServerConfig {
   const sessionId = options.sessionId ?? crypto.randomUUID();
   const mode = options.mode ?? "repo_local";
-  const sessionWarpWriterId = mode === "daemon"
-    ? buildSessionWarpWriterId(sessionId)
-    : undefined;
+  const sessionWarpWriterId = buildSessionWarpWriterId(sessionId);
   const env = options.env ?? process.env;
   const projectRoot = mode === "repo_local"
     ? (options.projectRoot ?? env["GRAFT_PROJECT_ROOT"]?.trim() ?? process.cwd())
@@ -129,6 +129,7 @@ function resolveGraftServerConfig(
     env,
     projectRoot,
     graftDir,
+    graphRoot: resolveWarpGraphRoot(options.graphRoot, env),
     sessionWarpWriterId,
   };
 }
@@ -163,6 +164,7 @@ function createDaemonRuntimeParts(input: {
       codec,
       git: gitClient,
       graftDir: config.graftDir,
+      graphRoot: config.graphRoot,
       controlPlane,
       scheduler,
       workerPool,
@@ -357,10 +359,10 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     logPath: observability.logPath,
     maxBytes: observability.maxBytes,
   });
-  const warpPool = options.warpPool ?? new InMemoryWarpPool(
-    (cwd, writerId) => openWarp({ cwd, writerId }),
-    resolveWarpPoolOptions(options.env ?? process.env),
-  );
+  const warpPool = options.warpPool ?? new InMemoryWarpPool({
+    graphRoot: config.graphRoot,
+    ...resolveWarpPoolOptions(options.env ?? process.env),
+  });
   const processRunner = options.processRunner ?? nodeProcessRunner;
   const persistedLocalHistory = new PersistedLocalHistoryStore({
     fs: nodeFs,

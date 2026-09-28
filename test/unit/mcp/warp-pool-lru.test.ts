@@ -1,16 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type WarpApp from "@git-stunts/git-warp";
-import { InMemoryWarpPool, resolveWarpPoolOptions } from "../../../src/mcp/warp-pool.js";
+import { resolveWarpPoolOptions } from "../../../src/mcp/warp-pool.js";
+import { fakeSidecarWarpPool, fixtureAcquireInput } from "../../helpers/warp-pool.js";
 
 function harness(maxResidents = 2) {
   let opens = 0;
-  const pool = new InMemoryWarpPool((_root, writerId) => {
+  const pool = fakeSidecarWarpPool(({ writerId }) => {
     opens++;
     return Promise.resolve({ writerId, generation: opens } as unknown as WarpApp);
   }, { maxResidents });
-  const acquire = (writerId: string, worktreeRoot = "/fixture") => pool.acquire({
-    key: { repoId: "repo", writerId }, worktreeRoot, ownerId: "operation",
-  });
+  const acquire = (writerId: string, worktreeRoot = "/fixture") => pool.acquire(fixtureAcquireInput({
+    repoId: "repo", writerId, worktreeRoot, ownerId: "operation", worktreeId: "repo:worktree",
+  }));
   return { pool, acquire, opens: () => opens };
 }
 
@@ -23,11 +24,9 @@ describe("WARP bounded resident LRU", () => {
   it("defaults to four slots and accepts an explicit bounded override", async () => {
     expect(resolveWarpPoolOptions({})).toEqual({});
     expect(resolveWarpPoolOptions({ GRAFT_WARP_MAX_RESIDENTS: " 2 " })).toEqual({ maxResidents: 2 });
-    const pool = new InMemoryWarpPool(() => Promise.resolve({} as WarpApp));
-    const leases = await Promise.all([0, 1, 2, 3].map((i) => pool.acquire({
-      key: { repoId: "repo", writerId: String(i) }, worktreeRoot: "/fixture", ownerId: "operation",
-    })));
-    await expect(pool.acquire({ key: { repoId: "repo", writerId: "fifth" }, worktreeRoot: "/fixture", ownerId: "operation" }))
+    const pool = fakeSidecarWarpPool(() => Promise.resolve({} as WarpApp));
+    const leases = await Promise.all([0, 1, 2, 3].map((i) => pool.acquire(fixtureAcquireInput({ repoId: "repo", writerId: String(i), worktreeRoot: "/fixture", ownerId: "operation" }))));
+    await expect(pool.acquire(fixtureAcquireInput({ repoId: "repo", writerId: "fifth", worktreeRoot: "/fixture", ownerId: "operation" })))
       .rejects.toMatchObject({ code: "WARP_RESIDENT_CAPACITY", maxResidents: 4 });
     await Promise.all(leases.map((lease) => lease.release()));
   });
@@ -96,14 +95,14 @@ describe("WARP bounded resident LRU", () => {
     let finish!: (app: WarpApp) => void;
     let opens = 0;
     const app = { writerId: "a" } as WarpApp;
-    const pool = new InMemoryWarpPool(() => {
+    const pool = fakeSidecarWarpPool(() => {
       opens++;
       return new Promise<WarpApp>((resolve) => { finish = resolve; });
     }, { maxResidents: 1 });
-    const input = { key: { repoId: "repo", writerId: "a" }, worktreeRoot: "/fixture", ownerId: "operation" };
+    const input = fixtureAcquireInput({ repoId: "repo", writerId: "a", worktreeRoot: "/fixture", ownerId: "operation" });
     const first = pool.acquire(input);
     const shared = pool.acquire(input);
-    await expect(pool.acquire({ ...input, key: { ...input.key, writerId: "b" } }))
+    await expect(pool.acquire({ ...input, writerId: "b" }))
       .rejects.toMatchObject({ code: "WARP_RESIDENT_CAPACITY" });
     expect(opens).toBe(1);
     finish(app);
@@ -116,11 +115,11 @@ describe("WARP bounded resident LRU", () => {
     const failure = new Error("controlled open failure");
     let attempts = 0;
     const app = { writerId: "a" } as WarpApp;
-    const pool = new InMemoryWarpPool(() => {
+    const pool = fakeSidecarWarpPool(() => {
       if (++attempts === 1) throw failure;
       return Promise.resolve(app);
     }, { maxResidents: 1 });
-    const input = { key: { repoId: "repo", writerId: "a" }, worktreeRoot: "/fixture", ownerId: "operation" };
+    const input = fixtureAcquireInput({ repoId: "repo", writerId: "a", worktreeRoot: "/fixture", ownerId: "operation" });
     await expect(pool.acquire(input)).rejects.toBe(failure);
     expect(pool.residentCount()).toBe(0);
     expect(pool.leaseCount("repo", "a")).toBe(0);

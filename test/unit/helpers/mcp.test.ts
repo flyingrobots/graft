@@ -42,6 +42,16 @@ describe("test helper: MCP server isolation", () => {
   it("does not eagerly open WARP local-history graph for createServerInRepo", async () => {
     const repoDir = createTestRepo("graft-mcp-helper-no-eager-warp-");
     const warpPool: WarpResidentPool = {
+      locationFor() {
+        const repoPath = path.join(`${repoDir}.graft-graphs`, "warp.git");
+        return {
+          graphRoot: path.dirname(repoPath),
+          projectDir: path.dirname(repoPath),
+          worktreeDir: path.dirname(repoPath),
+          actorDir: path.dirname(repoPath),
+          repoPath,
+        };
+      },
       acquire(): Promise<never> {
         throw new Error("unexpected eager WARP open");
       },

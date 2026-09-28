@@ -4,6 +4,13 @@ title: "Cycle 0023 — WARP Graph Model"
 
 # Cycle 0023 — WARP Graph Model
 
+> Storage-model update, 2026-08-29: [Automatic workspace admission and
+> isolated WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md)
+> supersedes this packet's source-repository persistence and global `graft`
+> writer assumptions. Production WARP state now lives in private bare
+> repository/worktree/actor sidecars. The remainder is the original historical
+> design record.
+
 **Sponsor human:** Repository Operator
 **Sponsor agent:** Implementation Agent
 
@@ -44,7 +51,7 @@ re-reading files or traversing ad hoc indexes.
 
 ## The Observer Law
 
-```
+```text
 ┌─────────────────────────────────────┐
 │  1. Write facts.                    │
 │  2. Read projections.               │
@@ -76,6 +83,7 @@ should be corrected.
 ## Playback questions
 
 ### Agent perspective
+
 - Can an agent query structural changes between two commits
   without reading files? **Must be yes.**
 - Does the model represent the structural elements the agent
@@ -85,6 +93,7 @@ should be corrected.
   across commits? **Must be yes.**
 
 ### Operator perspective
+
 - Is the model documented well enough that a new contributor
   can understand it? **Must be yes.**
 - Does it degrade gracefully for unsupported languages?
@@ -102,7 +111,7 @@ should be corrected.
 
 ## The Big Picture
 
-```
+```text
 Git commit history          WARP worldline (structural memory)
 ─────────────────          ────────────────────────────────────
 commit A ─────────────────► tick 0: structural snapshot

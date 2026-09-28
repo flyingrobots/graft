@@ -7,6 +7,11 @@ status: implementation
 
 # Bounded WARP resident LRU
 
+> Amended by [Automatic isolated workspace sidecars](WARP_automatic-isolated-workspace-sidecars.md):
+> resident identity is now `(repoId, worktreeId, writerId)`, and each resident
+> opens that identity's private sidecar under the graph root. Capacity,
+> recency, pinning, and release rules below are unchanged.
+
 ## Hill
 
 Graft's shared daemon pool keeps at most four graph handles resident by default. Only operations

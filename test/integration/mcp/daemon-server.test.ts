@@ -12,8 +12,21 @@ import {
   type GraftDaemonServer,
   type StartDaemonServerOptions,
 } from "../../../src/mcp/daemon-server.js";
+import { nodeGit } from "../../../src/adapters/node-git.js";
+import { resolveWorkspaceRequest } from "../../../src/mcp/workspace-router-resolution.js";
+import { resolveWarpSidecarLocation } from "../../../src/warp/sidecar.js";
 import { buildSessionWarpWriterId } from "../../../src/warp/writer-id.js";
 import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
+
+/** Writer refs held by one writer lane's isolated sidecar for the worktree at `repoDir`. */
+async function sidecarWriterRefs(graphRoot: string, repoDir: string, writerId: string): Promise<string[]> {
+  const resolved = await resolveWorkspaceRequest(nodeGit, { cwd: repoDir });
+  if ("code" in resolved) throw new Error(resolved.message);
+  const location = resolveWarpSidecarLocation(graphRoot, { ...resolved, writerId });
+  return git(location.repoPath, "for-each-ref --format='%(refname)' refs/warp/graft-ast/writers")
+    .split("\n")
+    .filter((ref) => ref.length > 0);
+}
 
 interface JsonResponse {
   readonly statusCode: number;
@@ -359,6 +372,61 @@ describe("mcp: daemon transport and lifecycle", () => {
     }
   });
 
+  it("keeps its default WARP graph root under the injected environment's GRAFT_ROOT_PATH, not the process's", {
+    timeout: 15_000,
+  }, async () => {
+    // Oracle: the documented layout, <graft root>/graphs. The ambient
+    // GRAFT_ROOT_PATH is the test setup's root, so a daemon that resolved its
+    // graph root from process.env would open the sidecar there instead.
+    const repoDir = createTestRepo("graft-daemon-env-graph-root-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    const rootDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-")));
+    roots.push(rootDir);
+    const ambientGraphRoot = path.join(process.env["GRAFT_ROOT_PATH"]!, "graphs");
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: path.join(rootDir, "daemon"),
+      socketPath,
+      persistedLocalHistoryGraph: true,
+      env: { ...process.env, GRAFT_ROOT_PATH: rootDir },
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    expect((await callTool<{ ok: boolean }>(socketPath, sessionId, "workspace_authorize", { cwd: repoDir }, 10)).ok).toBe(true);
+    expect((await callTool<{ ok: boolean }>(socketPath, sessionId, "workspace_bind", { cwd: repoDir }, 11)).ok).toBe(true);
+
+    const writerId = buildSessionWarpWriterId(sessionId);
+    await expect(sidecarWriterRefs(path.join(rootDir, "graphs"), repoDir, writerId))
+      .resolves.toEqual([`refs/warp/graft-ast/writers/${writerId}`]);
+    const resolved = await resolveWorkspaceRequest(nodeGit, { cwd: repoDir });
+    if ("code" in resolved) throw new Error(resolved.message);
+    expect(fs.existsSync(resolveWarpSidecarLocation(ambientGraphRoot, { ...resolved, writerId }).repoPath)).toBe(false);
+  });
+
+  it("gives its sessions the daemon's explicit graph root instead of re-deriving a default", async () => {
+    // Oracle: a daemon started with every location explicit never needs the
+    // Graft root, so an unusable GRAFT_ROOT_PATH in its env must not stop a
+    // session from opening. A session that re-derived the default graph root
+    // from that env would refuse the relative value.
+    const rootDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-")));
+    roots.push(rootDir);
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: rootDir,
+      socketPath,
+      graphRoot: path.join(rootDir, "graphs"),
+      env: { ...process.env, GRAFT_ROOT_PATH: "relative-graft-root" },
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    expect(sessionId.length).toBeGreaterThan(0);
+  });
+
   it("rejects an initialize request that finishes after shutdown stops session admission", {
     timeout: 15_000,
   }, async () => {
@@ -545,11 +613,13 @@ describe("mcp: daemon transport and lifecycle", () => {
 
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
     roots.push(rootDir);
+    const graphRoot = path.join(fs.realpathSync.native(rootDir), "graphs");
     const socketPath = path.join(rootDir, "daemon.sock");
     const daemon = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
       persistedLocalHistoryGraph: true,
+      graphRoot,
     });
     daemons.push(daemon);
 
@@ -578,14 +648,13 @@ describe("mcp: daemon transport and lifecycle", () => {
       12,
     )).ok).toBe(true);
 
-    const writerRefs = git(
-      repoDir,
-      "for-each-ref --format='%(refname)' refs/warp/graft-ast/writers",
-    ).split("\n").filter((ref) => ref.length > 0);
-    expect(writerRefs).toEqual(expect.arrayContaining([
-      `refs/warp/graft-ast/writers/${buildSessionWarpWriterId(sessionA)}`,
-      `refs/warp/graft-ast/writers/${buildSessionWarpWriterId(sessionB)}`,
-    ]));
+    const writerA = buildSessionWarpWriterId(sessionA);
+    const writerB = buildSessionWarpWriterId(sessionB);
+    await expect(sidecarWriterRefs(graphRoot, repoDir, writerA))
+      .resolves.toEqual([`refs/warp/graft-ast/writers/${writerA}`]);
+    await expect(sidecarWriterRefs(graphRoot, repoDir, writerB))
+      .resolves.toEqual([`refs/warp/graft-ast/writers/${writerB}`]);
+    expect(git(repoDir, "for-each-ref --format='%(refname)' refs/warp")).toBe("");
     const residentHealth = parseJson(await requestUnixJson(socketPath, "GET", "/healthz")) as {
       activeWarpRepos: number;
       activeWarpResidents: number;
@@ -605,11 +674,13 @@ describe("mcp: daemon transport and lifecycle", () => {
 
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-"));
     roots.push(rootDir);
+    const graphRoot = path.join(fs.realpathSync.native(rootDir), "graphs");
     const socketPath = path.join(rootDir, "daemon.sock");
     const daemon = await startTestDaemonServer({
       graftDir: rootDir,
       socketPath,
       persistedLocalHistoryGraph: true,
+      graphRoot,
       env: { GRAFT_WARP_MAX_RESIDENTS: "1" },
     });
     daemons.push(daemon);
@@ -656,8 +727,10 @@ describe("mcp: daemon transport and lifecycle", () => {
       activeSessions: 1,
       activeWarpResidents: 1,
     }));
-    expect(git(repoDir, "for-each-ref --format='%(refname)' refs/warp/graft-ast/writers").split("\n"))
-      .toContain(`refs/warp/graft-ast/writers/${buildSessionWarpWriterId(replacement)}`);
+    const replacementWriter = buildSessionWarpWriterId(replacement);
+    await expect(sidecarWriterRefs(graphRoot, repoDir, replacementWriter))
+      .resolves.toEqual([`refs/warp/graft-ast/writers/${replacementWriter}`]);
+    expect(git(repoDir, "for-each-ref --format='%(refname)' refs/warp")).toBe("");
   });
 
   it("preserves safe_read cache behavior across off-process daemon execution", async () => {

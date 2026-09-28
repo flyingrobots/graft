@@ -17,7 +17,7 @@ import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { ChildProcessDaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import { InMemoryWarpPool, resolveWarpPoolOptions } from "./warp-pool.js";
-import { openWarp } from "../warp/open.js";
+import { resolveWarpGraphRoot } from "../warp/sidecar.js";
 import type { RunCaptureConfig } from "./run-capture-config.js";
 import type { RuntimeObservabilityState } from "./runtime-observability.js";
 import {
@@ -39,6 +39,7 @@ export type DaemonHealthStatus = DaemonStatusView;
 export interface StartDaemonServerOptions {
   readonly socketPath?: string | undefined;
   readonly graftDir?: string | undefined;
+  readonly graphRoot?: string | undefined;
   readonly env?: Readonly<Record<string, string | undefined>> | undefined;
   readonly runCapture?: Partial<RunCaptureConfig> | undefined;
   readonly runtimeObservability?: Partial<RuntimeObservabilityState> | undefined;
@@ -76,13 +77,14 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensureGitVersionSupportsGraft();
   const env = options.env ?? process.env;
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot(graftRootPath(env)));
+  const graphRoot = resolveWarpGraphRoot(options.graphRoot, env);
   const socketPath = resolveSocketPath(options.socketPath, graftDir, undefined, { env });
   const startedAt = new Date().toISOString();
   const incarnationId = randomUUID();
-  const warpPool = new InMemoryWarpPool(
-    (cwd, writerId) => openWarp({ cwd, writerId }),
-    resolveWarpPoolOptions(env),
-  );
+  const warpPool = new InMemoryWarpPool({
+    graphRoot,
+    ...resolveWarpPoolOptions(env),
+  });
   const controlPlane = new DaemonControlPlane({
     fs: nodeFs,
     codec: new CanonicalJsonCodec(),
@@ -98,6 +100,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
     codec: new CanonicalJsonCodec(),
     git: nodeGit,
     graftDir,
+    graphRoot,
     controlPlane,
     scheduler: daemonScheduler,
     workerPool: daemonWorkerPool,
@@ -124,6 +127,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await prepareSocketPath(socketPath);
   const sessionHost = createDaemonSessionHost({
     graftDir,
+    graphRoot,
     socketPath,
     transportKind,
     healthPath: HEALTH_PATH,

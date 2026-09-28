@@ -60,5 +60,6 @@ itself should use its own root variable, in the product as well as in tests.
   repository, not the user, and do not move.
 - Where installers put `~/.graft/bin` and `~/.graft/installs`; that is outside
   this repository.
-- The per-worktree WARP graph root proposed in PR #249. When it lands it should
-  derive from `graftRootPath()` rather than from `HOME`.
+- The per-worktree WARP graph root proposed in PR #249 is not part of this
+  packet. PR #249 derives its default from `graftRootPath()` as
+  `<graft root>/graphs`, and adds it to the behavioural home-read test above.

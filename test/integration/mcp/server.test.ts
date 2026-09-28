@@ -6,6 +6,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import { extractText, harnessPath } from "../../helpers/mcp.js";
 import { createCommittedTestRepo, cleanupTestRepo } from "../../helpers/git.js";
+import { graftTestRoot } from "../../setup-graft-root.js";
 
 // ---------------------------------------------------------------------------
 // Fixture content: small .ts, large .ts (>150 lines), medium .ts, binary PNG
@@ -118,7 +119,11 @@ describe("integration: MCP server over stdio", { timeout: 60_000 }, () => {
       // resolve tsx from node_modules.  The isolated project root is passed
       // through GRAFT_TEST_PROJECT_ROOT.
       cwd: harnessPath(),
+      // The SDK gives the child only a default environment plus this one, so
+      // pass the suite's Graft root; without it the child's WARP graph root
+      // would be the developer's real ~/.graft/graphs.
       env: {
+        GRAFT_ROOT_PATH: graftTestRoot,
         GRAFT_TEST_PROJECT_ROOT: projectRoot,
         GRAFT_TEST_GRAFT_DIR: graftDir,
       },

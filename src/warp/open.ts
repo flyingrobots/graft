@@ -1,6 +1,7 @@
 /**
- * WARP graph initialization — opens the graft-ast graph backed by
- * the repo's own .git directory.
+ * WARP graph initialization — opens the graft-ast graph in the Git
+ * persistence repository supplied by the composition root. Production
+ * callers supply a Graft-owned bare sidecar, never a source repository.
  *
  * Sole construction adapter. After this, git-warp types flow directly.
  */
@@ -26,16 +27,23 @@ interface GitStreamLike {
   [Symbol.asyncIterator](): AsyncIterator<Uint8Array>;
 }
 
-function raiseWarpGitBufferLimit(plumbing: GitPlumbing): GitPlumbing {
+function raiseWarpGitBufferLimit(
+  plumbing: GitPlumbing,
+  gitEnv: Readonly<Record<string, string>> = {},
+): GitPlumbing {
   const execute = plumbing.execute.bind(plumbing);
   plumbing.execute = ((options: GitExecuteOptions) => execute({
     ...options,
+    env: { ...options.env, ...gitEnv },
     maxBytes: options.maxBytes ?? WARP_GIT_MAX_BUFFER_BYTES,
   })) as GitPlumbing["execute"];
 
   const executeStream = plumbing.executeStream.bind(plumbing);
   plumbing.executeStream = (async (options: { args: string[]; input?: string | Uint8Array; env?: Record<string, string> }) => {
-    const stream = await executeStream(options);
+    const stream = await executeStream({
+      ...options,
+      env: { ...options.env, ...gitEnv },
+    });
     const collect = stream.collect.bind(stream);
     stream.collect = (opts = {}) => collect({
       ...opts,
@@ -51,10 +59,14 @@ export interface OpenWarpOptions {
   readonly cwd: string;
   readonly writerId?: string;
   readonly checkpointEvery?: number;
+  readonly gitEnv?: Readonly<Record<string, string>>;
 }
 
 export async function openWarp(options: OpenWarpOptions): Promise<WarpApp> {
-  const plumbing = raiseWarpGitBufferLimit(GitPlumbing.createDefault({ cwd: options.cwd }));
+  const plumbing = raiseWarpGitBufferLimit(
+    GitPlumbing.createDefault({ cwd: options.cwd }),
+    options.gitEnv,
+  );
   const persistence = new GitGraphAdapter({ plumbing });
 
   return WarpApp.open({

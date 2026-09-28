@@ -6,11 +6,11 @@ import * as path from "node:path";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { nodeFs } from "../../../src/adapters/node-fs.js";
 import { nodeGit } from "../../../src/adapters/node-git.js";
-import { openWarp } from "../../../src/warp/open.js";
 import { InMemoryWarpPool } from "../../../src/mcp/warp-pool.js";
 import { WorkspaceRouter } from "../../../src/mcp/workspace-router.js";
 import { PersistedLocalHistoryStore } from "../../../src/mcp/persisted-local-history.js";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../helpers/git.js";
+import { createTestWarpGraphRoot, fakeSidecarWarpPool } from "../../helpers/warp-pool.js";
 
 const cleanups: (() => Promise<void> | void)[] = [];
 afterEach(async () => { for (const cleanup of cleanups.splice(0).reverse()) await cleanup(); });
@@ -25,7 +25,9 @@ describe("workspace residency under LRU pressure", () => {
     cleanups.push(() => { cleanupTestRepo(first); cleanupTestRepo(second); });
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-one-slot-session-"));
     cleanups.push(() => { fs.rmSync(graftDir, { recursive: true, force: true }); });
-    const pool = new InMemoryWarpPool((cwd, writerId) => openWarp({ cwd, writerId }), { maxResidents: 1 });
+    const graphRoot = createTestWarpGraphRoot();
+    cleanups.push(() => { fs.rmSync(graphRoot, { recursive: true, force: true }); });
+    const pool = new InMemoryWarpPool({ graphRoot, maxResidents: 1 });
     const history = new PersistedLocalHistoryStore({ fs: nodeFs, codec: new CanonicalJsonCodec(), graftDir });
     const router = new WorkspaceRouter({
       mode: "repo_local", projectRoot: first, graftDir, fs: nodeFs, git: nodeGit,
@@ -53,7 +55,7 @@ describe("workspace residency under LRU pressure", () => {
     const scratch = fs.mkdtempSync(path.join(os.tmpdir(), "graft-resident-sessions-"));
     cleanups.push(() => { fs.rmSync(scratch, { recursive: true, force: true }); });
     let opens = 0;
-    const pool = new InMemoryWarpPool((_root, writerId) => {
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
       opens++;
       return Promise.resolve({ writerId } as WarpApp);
     }, { maxResidents: 2 });

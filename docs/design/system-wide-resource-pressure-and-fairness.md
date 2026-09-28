@@ -4,6 +4,12 @@ title: "System-wide resource pressure and fairness"
 
 # System-wide resource pressure and fairness
 
+> Storage-model update, 2026-08-29: [Automatic workspace admission and
+> isolated WARP sidecars](./WARP_automatic-isolated-workspace-sidecars.md)
+> supersedes this packet's assumption that linked worktrees share one
+> `refs/warp/*` namespace. Fair scheduling remains relevant, but production
+> WARP working graphs are now isolated by repository, worktree, and actor.
+
 Source backlog item: `docs/method/backlog/up-next/SURFACE_system-wide-resource-pressure-and-fairness.md`
 Legend: SURFACE
 
@@ -130,13 +136,13 @@ Questions:
 
 Related:
 
-- `docs/method/backlog/up-next/WARP_same-repo-concurrent-agent-model.md`
+- `docs/design/WARP_same-repo-concurrent-agent-model.md`
 - `docs/method/backlog/cool-ideas/WARP_background-indexing.md`
-- `docs/method/backlog/up-next/CORE_async-git-client-via-plumbing.md`
-- `docs/method/backlog/up-next/CORE_async-filesystem-port-on-request-paths.md`
-- `docs/method/backlog/up-next/SURFACE_daemon-job-scheduler-and-worker-pool.md`
-- `docs/method/backlog/up-next/WARP_logical-writer-lanes.md`
-- `docs/method/backlog/up-next/SURFACE_monitors-run-through-scheduler.md`
+- `docs/design/CORE_async-git-client-via-plumbing.md`
+- `docs/design/CORE_async-filesystem-port-on-request-paths.md`
+- `docs/design/SURFACE_daemon-job-scheduler-and-worker-pool.md`
+- `docs/design/WARP_logical-writer-lanes.md`
+- `docs/design/SURFACE_monitors-run-through-scheduler.md`
 
 ## Design leaning
 

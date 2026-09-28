@@ -47,6 +47,20 @@ function createOutsideFile(): string {
   return outsideFile;
 }
 
+function createWorkerSidecarLocation(): {
+  readonly warpGraphRoot: string;
+  readonly warpSidecarRepo: string;
+} {
+  const graphRoot = fs.mkdtempSync(path.join(os.tmpdir(), "graft-path-ops-sidecar-"));
+  cleanups.push(() => {
+    fs.rmSync(graphRoot, { recursive: true, force: true });
+  });
+  return {
+    warpGraphRoot: graphRoot,
+    warpSidecarRepo: path.join(graphRoot, "project", "worktree", "actor", "warp.git"),
+  };
+}
+
 function repoObservation(repoDir: string): RepoObservation {
   return {
     checkoutEpoch: 1,
@@ -83,6 +97,7 @@ async function expectWorkerRefusesOutsidePath(repoDir: string, outsideFile: stri
     worktreeId: "worktree:path-ops-playback",
     gitCommonDir: path.join(repoDir, ".git"),
     writerId: "graft_path_ops_playback",
+    ...createWorkerSidecarLocation(),
     capabilityProfile: DEFAULT_DAEMON_CAPABILITY_PROFILE,
     repoState: repoObservation(repoDir),
     governorSnapshot: new GovernorTracker().snapshot(),
