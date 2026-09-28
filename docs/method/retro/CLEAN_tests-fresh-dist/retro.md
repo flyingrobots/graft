@@ -131,12 +131,13 @@ once, as `cleanupTestRepo` does. Results on this host (macOS, git 2.54.0, Node 2
 | `default` | 8 copies at once | 1200 | 0 |
 | `forced` (adds a detached `git maintenance run --task=gc --detach` before removal) | none | 200 | 0 |
 | `forced` | 8 copies at once | 1200 | 1 |
+| `default`, committed harness | 8 copies at once | 1200 | 0 |
 | `forced`, committed harness | 8 copies at once | 1200 | 2 |
 
-The first four rows ran from a scratch copy of the harness with the same steps; the last row ran the
-committed file. So a background git writing under `.git` can make `fs.rmSync` fail with `ENOTEMPTY`
+The first four rows ran from a scratch copy of the harness with the same steps; the last two ran
+the committed file. So a background git writing under `.git` can make `fs.rmSync` fail with `ENOTEMPTY`
 under load, and each directory left behind held only an empty `.git`, consistent with a writer that
-finished after the removal gave up. The test's own sequence has not reproduced it (0 of 1400 here,
+finished after the removal gave up. The test's own sequence has not reproduced it (0 of 2600 here,
 plus the earlier 0 of 600). The mechanism is therefore plausible and shown possible, not confirmed as
 the cause of the recorded failure (inferred; what would settle it is a failing run of the `default`
 variant or of the test itself with `GIT_TRACE` output showing a detached maintenance process alive
@@ -154,8 +155,8 @@ Affected claim, tests, revision or delivery scope: test/unit/git/diff.test.ts "l
   test/helpers/git.ts; it adds a global setup that finishes before any test starts.
 Missing evidence/control and attempts made: root cause unconfirmed. Attempts: 3 parent-revision
   full runs (0 failures of this test), 2 later branch full runs (0), a standalone loop (0 of 600),
-  the committed harness's default variant (0 of 1400). Its forced variant reproduces ENOTEMPTY
-  (3 of 2400 under 8-way load).
+  the harness's default variant (0 of 2600, 1400 of them from a scratch copy with the same steps). Its forced variant reproduces ENOTEMPTY
+  (3 of 2400 under 8-way load; 0 of 200 without load).
 Residual product and test risk: product risk none identified (the failing step is test-only temp
   cleanup). Test risk: an intermittent red full run that is not a product defect, which invites
   retry-to-green.
