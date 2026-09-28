@@ -256,6 +256,25 @@ describe("test support: ensureFreshDist publishes whole builds", { timeout: CASE
     expect(buildDirectoriesBesideDist(root)).toEqual([]);
   });
 
+  it("puts the previous dist back when renaming the build into place fails unexpectedly", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
+    fs.writeFileSync(path.join(root, "src", "a.ts"), "export const a = 2;\n");
+    setTime(path.join(root, "src", "a.ts"), EDIT_TIME);
+    const dist = path.join(root, "dist");
+    beforeRenameTo.set(dist, () => {
+      throw Object.assign(new Error("permission denied"), { code: "EACCES" });
+    });
+    onTestFinished(() => {
+      beforeRenameTo.delete(dist);
+    });
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).rejects.toMatchObject({ code: "EACCES" });
+
+    expect(distText(root, "a.js")).toBe("export const a = 1;\n");
+    expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
+  });
+
   it("two concurrent calls each publish a complete build, and dist is whole at every rename", async ({ onTestFinished }) => {
     const root = packageRoot(onTestFinished);
     const dist = path.join(root, "dist");

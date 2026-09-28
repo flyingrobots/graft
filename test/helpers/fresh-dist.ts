@@ -189,7 +189,9 @@ function removeAbandonedBuildDirectories(root: string): void {
  * Replaces dist/ with `staging` by renaming: the current dist/ is moved aside, then `staging` is
  * renamed to dist/. A reader therefore finds dist/ absent or one build's complete output, never a
  * mixture. Returns false, leaving `staging` in place, when another process published its own build
- * between the two renames: a rename onto a non-empty directory fails, so that build is kept.
+ * between the two renames: a rename onto a non-empty directory fails, so that build is kept. Any
+ * other failure of the second rename puts the previous dist/ back before rethrowing, and, if that also fails,
+ * leaves it at its retired name for a later run to remove.
  */
 function publish(root: string, staging: string): boolean {
   const dist = path.join(root, "dist");
@@ -201,14 +203,21 @@ function publish(root: string, staging: string): boolean {
   }
   try {
     fs.renameSync(staging, dist);
-    return true;
   } catch (error: unknown) {
     const code = (error as NodeJS.ErrnoException).code;
-    if (code === "ENOTEMPTY" || code === "EEXIST") return false;
+    if (code === "ENOTEMPTY" || code === "EEXIST") {
+      fs.rmSync(retired, { recursive: true, force: true });
+      return false;
+    }
+    try {
+      fs.renameSync(retired, dist);
+    } catch (restoreError: unknown) {
+      if (!isMissing(restoreError)) throw new AggregateError([error, restoreError], `Publishing the dist/ build failed and the previous dist/ is left at ${retired}.`, { cause: restoreError });
+    }
     throw error;
-  } finally {
-    fs.rmSync(retired, { recursive: true, force: true });
   }
+  fs.rmSync(retired, { recursive: true, force: true });
+  return true;
 }
 
 /**
