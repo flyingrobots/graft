@@ -11,9 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 - **Modular Graft design packet** (`docs/design/CORE_modular-graft-runtime-and-library.md`):
   separates embeddable Graft from its operator runtime, with a source ownership
-  inventory. A test now holds the inventory to its own boundary, so no file it
-  assigns to the library imports the MCP transport or an operator-owned file.
-  `src/api/tool-bridge.ts` stays with the operator compatibility facade, because
+  inventory. `src/api/tool-bridge.ts` stays with the operator compatibility facade, because
   its signatures carry MCP SDK types.
   `src/git/target-git-hook-bootstrap.ts` is split: its pure hook contract moves
   to the library, and building the hook script stays with the operator.
