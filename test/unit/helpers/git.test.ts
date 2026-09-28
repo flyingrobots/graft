@@ -4,7 +4,28 @@ import * as path from "node:path";
 import { describe, expect, it } from "vitest";
 import { assertIsolatedGitTestDir, cleanupTestRepo, createTestRepo, git, testGitClient } from "../../helpers/git.js";
 
-describe("test helper: git isolation", () => {
+// Suite metadata (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots.
+// "git isolation": size medium. Resources: temp directories under os.tmpdir(), each removed by the
+// case that made it; `git` child processes run one at a time in those directories; no network.
+// Two cases set process.env GIT_DIR and GIT_WORK_TREE and restore them in finally, so this describe
+// must not run concurrently with itself. Ceiling: GIT_CASE_TIMEOUT_MS per case, enforced by the
+// describe timeout (the slowest case measured about 220 ms locally).
+// "cleanupTestRepo retries": size small. Resources: none; the remover is an in-memory stub and the
+// retry wait is 0 ms or an injected sleep, so no case touches the filesystem or waits on a timer.
+// Ceiling: CLEANUP_CASE_TIMEOUT_MS per case, enforced by the describe timeout (each case measured
+// under 5 ms locally).
+// Suite budget: 2 s for the file (about 1 s measured locally). Isolation checked alone and shuffled.
+// CI stage: pre-merge. The CI workflow's `test` job (Node 22 leg, step "Tests") runs `pnpm test`,
+// the Docker-isolated full Vitest run, on every pull request to main and every push to main.
+// Deletion criterion (Rule 18): delete a describe with the helper it tests (test/helpers/git.ts's
+// isolation functions, or cleanupTestRepo), or when a stronger test that covers the same claims
+// replaces it. Displaced risk if deleted without either: test git commands reaching the live
+// repository, or temp repositories left behind, or retried cleanup failures going unseen.
+
+const GIT_CASE_TIMEOUT_MS = 5_000;
+const CLEANUP_CASE_TIMEOUT_MS = 1_000;
+
+describe("test helper: git isolation", { timeout: GIT_CASE_TIMEOUT_MS }, () => {
   it("allows temp sandbox directories", () => {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-git-helper-"));
     try {
@@ -30,7 +51,7 @@ describe("test helper: git isolation", () => {
     }).toThrow(/Refusing to run git test command in live repo path/);
   });
 
-  it("creates temp repos in the temp sandbox", () => {
+  it("creates temp repos in the temp sandbox", async () => {
     const repoDir = createTestRepo("graft-git-helper-repo-");
     try {
       expect(repoDir.startsWith(os.tmpdir())).toBe(true);
@@ -38,11 +59,11 @@ describe("test helper: git isolation", () => {
       expect(git(repoDir, "symbolic-ref --short HEAD")).toBe("main");
       expect(git(repoDir, "config --get core.fsmonitor")).toBe("false");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
-  it("scrubs inherited Git repository environment before executing commands", () => {
+  it("scrubs inherited Git repository environment before executing commands", async () => {
     const repoRoot = path.resolve(import.meta.dirname, "../../..");
     const repoDir = createTestRepo("graft-git-helper-env-");
     const previousGitDir = process.env["GIT_DIR"];
@@ -64,7 +85,7 @@ describe("test helper: git isolation", () => {
       } else {
         process.env["GIT_WORK_TREE"] = previousGitWorkTree;
       }
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -91,7 +112,145 @@ describe("test helper: git isolation", () => {
       } else {
         process.env["GIT_WORK_TREE"] = previousGitWorkTree;
       }
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
+  });
+
+  // A background `git maintenance` that `git commit` may start can still be writing under `.git`
+  // while cleanup deletes the repo, a plausible (not confirmed) cause of one ENOTEMPTY cleanup
+  // failure recorded in docs/method/retro/CLEAN_tests-fresh-dist/retro.md.
+  it("turns off automatic git maintenance and gc in temp repos", async () => {
+    const repo = createTestRepo("graft-helper-maintenance-");
+    try {
+      expect(git(repo, "config --get maintenance.auto").trim()).toBe("false");
+      expect(git(repo, "config --get gc.auto").trim()).toBe("0");
+    } finally {
+      await cleanupTestRepo(repo);
+    }
+  });
+});
+
+// Oracle: cleanupTestRepo removes the graph root and the repo, each through the injected remover,
+// attempting both even when one fails and rejecting with the first failure (graph root first).
+// Only ENOTEMPTY and EBUSY are retried, four times, after 25, 50, 100 and 200 ms by default; every
+// retry prints one warning naming the path and the code; any other error rejects at once; after the
+// last retry the removal rejects with the error the remover threw. Deterministic: the remover is a
+// stub that throws planned errors, and the retry delay is 0 or the wait is an injected sleep that
+// records its argument, so no case touches the filesystem or waits on a timer.
+// Size: small; resources, ceiling, CI stage and deletion criterion are in the suite metadata above.
+describe("test helper: cleanupTestRepo retries transient removal errors", { timeout: CLEANUP_CASE_TIMEOUT_MS }, () => {
+  function fsError(code: string): NodeJS.ErrnoException {
+    return Object.assign(new Error(`${code}: planned failure`), { code });
+  }
+
+  /** A remover that throws the planned errors for `target`, in order, then succeeds. */
+  function plannedRemover(target: string, errors: NodeJS.ErrnoException[]) {
+    const calls: string[] = [];
+    const remove = (entry: string): Promise<void> => {
+      calls.push(entry);
+      const next = entry === target ? errors.shift() : undefined;
+      return next === undefined ? Promise.resolve() : Promise.reject(next);
+    };
+    return { calls, remove };
+  }
+
+  const repo = path.join(os.tmpdir(), "graft-cleanup-retry-repo");
+
+  it("retries a transient ENOTEMPTY and warns about it", async () => {
+    const remover = plannedRemover(repo, [fsError("ENOTEMPTY")]);
+    const warnings: string[] = [];
+
+    await cleanupTestRepo(repo, { remove: remover.remove, warn: (message) => warnings.push(message), retryDelayMs: 0 });
+
+    expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo, repo]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain(repo);
+    expect(warnings[0]).toContain("ENOTEMPTY");
+  });
+
+  it("retries a transient EBUSY and warns about it", async () => {
+    const remover = plannedRemover(repo, [fsError("EBUSY")]);
+    const warnings: string[] = [];
+
+    await cleanupTestRepo(repo, { remove: remover.remove, warn: (message) => warnings.push(message), retryDelayMs: 0 });
+
+    expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo, repo]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("EBUSY");
+  });
+
+  it("rejects at once, without retrying or warning, on an error that is not transient", async () => {
+    const denied = fsError("EACCES");
+    const remover = plannedRemover(repo, [denied]);
+    const warnings: string[] = [];
+
+    await expect(
+      cleanupTestRepo(repo, { remove: remover.remove, warn: (message) => warnings.push(message), retryDelayMs: 0 }),
+    ).rejects.toBe(denied);
+
+    expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo]);
+    expect(warnings).toEqual([]);
+  });
+
+  it("still removes the repo when removing the graph root fails, then rejects with the graph root's error", async () => {
+    const denied = fsError("EACCES");
+    const remover = plannedRemover(`${repo}.graft-graphs`, [denied]);
+
+    await expect(
+      cleanupTestRepo(repo, { remove: remover.remove, warn: () => undefined, retryDelayMs: 0 }),
+    ).rejects.toBe(denied);
+
+    expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo]);
+  });
+
+  it("warns about the repo's failure when both removals fail and it rejects with the graph root's", async () => {
+    const rootDenied = fsError("EACCES");
+    const repoDenied = fsError("EPERM");
+    const calls: string[] = [];
+    const remove = (entry: string): Promise<void> => {
+      calls.push(entry);
+      return Promise.reject(entry === repo ? repoDenied : rootDenied);
+    };
+    const warnings: string[] = [];
+
+    await expect(
+      cleanupTestRepo(repo, { remove, warn: (message) => warnings.push(message), retryDelayMs: 0 }),
+    ).rejects.toBe(rootDenied);
+
+    expect(calls).toEqual([`${repo}.graft-graphs`, repo]);
+    expect(warnings).toEqual([`[graft test cleanup] could not remove ${repo} either: EPERM: planned failure`]);
+  });
+
+  it("rejects with the remover's own error once ENOTEMPTY outlasts every retry", async () => {
+    const persistent = fsError("ENOTEMPTY");
+    const remover = plannedRemover(repo, Array.from({ length: 20 }, () => persistent));
+    const warnings: string[] = [];
+
+    await expect(
+      cleanupTestRepo(repo, { remove: remover.remove, warn: (message) => warnings.push(message), retryDelayMs: 0 }),
+    ).rejects.toBe(persistent);
+
+    const attempts = remover.calls.filter((entry) => entry === repo).length;
+    expect(attempts).toBe(5);
+    expect(warnings).toHaveLength(4);
+  });
+
+  it("waits 25, 50, 100 and 200 ms before its four retries by default", async () => {
+    const persistent = fsError("ENOTEMPTY");
+    const remover = plannedRemover(repo, Array.from({ length: 20 }, () => persistent));
+    const waits: number[] = [];
+
+    await expect(
+      cleanupTestRepo(repo, {
+        remove: remover.remove,
+        warn: () => undefined,
+        sleep: (ms) => {
+          waits.push(ms);
+          return Promise.resolve();
+        },
+      }),
+    ).rejects.toBe(persistent);
+
+    expect(waits).toEqual([25, 50, 100, 200]);
   });
 });

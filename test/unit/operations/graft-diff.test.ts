@@ -23,8 +23,8 @@ describe("operations: graft diff", () => {
     tmpDir = createTestRepo("graft-diff-op-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("diffs modified file between two refs", async () => {
@@ -195,8 +195,8 @@ describe("operations: graft diff — renamed files", () => {
     tmpDir = createTestRepo("graft-diff-rename-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("renamed file appears as single modified FileDiff at new path", async () => {

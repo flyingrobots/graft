@@ -16,8 +16,8 @@ describe("warp: drift-sentinel", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-drift-sentinel-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

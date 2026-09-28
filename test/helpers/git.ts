@@ -3,6 +3,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { fileURLToPath } from "node:url";
 import { execSync, spawnSync } from "node:child_process";
+import { retry, RetryExhaustedError } from "@git-stunts/alfred";
 import type { GitClient, GitRunRequest } from "../../src/ports/git.js";
 
 const LIVE_REPO_ROOT = fs.realpathSync.native(
@@ -107,6 +108,10 @@ export function ensureGitRepo(cwd: string): void {
   git(cwd, "config commit.gpgsign false");
   git(cwd, "config tag.gpgSign false");
   git(cwd, "config core.fsmonitor false");
+  // No background maintenance or gc: a detached `git maintenance` started by a commit could still be
+  // writing under .git while cleanupTestRepo deletes the repo.
+  git(cwd, "config maintenance.auto false");
+  git(cwd, "config gc.auto 0");
 }
 
 export function createCommittedTestRepo(
@@ -128,8 +133,73 @@ export function testGraphRootForRepo(repoDir: string): string {
   return `${repoDir}.graft-graphs`;
 }
 
-/** Remove a temp directory created by createTestRepo. */
-export function cleanupTestRepo(tmpDir: string): void {
-  fs.rmSync(testGraphRootForRepo(tmpDir), { recursive: true, force: true });
-  fs.rmSync(tmpDir, { recursive: true, force: true });
+/**
+ * Errors a recursive removal can hit when another process is still writing under the tree (for
+ * example a detached git writing under .git), which may clear on a later attempt.
+ */
+const TRANSIENT_REMOVAL_CODES = new Set(["ENOTEMPTY", "EBUSY"]);
+/** Retries after the first attempt; with the default delay the waits are 25, 50, 100 and 200 ms. */
+const REMOVAL_RETRIES = 4;
+const REMOVAL_RETRY_DELAY_MS = 25;
+
+export interface CleanupTestRepoOptions {
+  /** Removes one directory tree; `fs.promises.rm` with `recursive` and `force` by default. */
+  readonly remove?: (target: string) => Promise<void>;
+  /** Receives one line per retry; `console.warn` by default. */
+  readonly warn?: (message: string) => void;
+  /** Delay before the first retry, doubling for each later one. */
+  readonly retryDelayMs?: number;
+  /** Waits the given milliseconds before a retry; a real timer by default. */
+  readonly sleep?: (ms: number) => Promise<void>;
+}
+
+function removalCode(error: Error): string | undefined {
+  return (error as NodeJS.ErrnoException).code;
+}
+
+async function removeTree(target: string, options: CleanupTestRepoOptions): Promise<void> {
+  const remove = options.remove ?? ((entry: string) => fs.promises.rm(entry, { recursive: true, force: true }));
+  const warn = options.warn ?? console.warn;
+  try {
+    await retry(() => remove(target), {
+      retries: REMOVAL_RETRIES,
+      delay: options.retryDelayMs ?? REMOVAL_RETRY_DELAY_MS,
+      backoff: "exponential",
+      jitter: "none",
+      ...(options.sleep !== undefined ? { clock: { now: () => Date.now(), sleep: options.sleep } } : {}),
+      shouldRetry: (error) => TRANSIENT_REMOVAL_CODES.has(removalCode(error) ?? ""),
+      onRetry: (error, attempt, delay) => {
+        warn(
+          `[graft test cleanup] removing ${target} failed with ${removalCode(error) ?? error.name}; `
+          + `retry ${String(attempt)} of ${String(REMOVAL_RETRIES)} in ${String(delay)} ms.`,
+        );
+      },
+    });
+  } catch (error: unknown) {
+    // After the last retry alfred wraps the remover's error; surface the error the remover threw.
+    throw error instanceof RetryExhaustedError ? error.cause : error;
+  }
+}
+
+/**
+ * Remove a temp directory created by createTestRepo, and its graph root. A removal that fails with
+ * ENOTEMPTY or EBUSY is retried a few times with a warning each time, so a recurrence is visible;
+ * any other error, or the last retry's error, rejects. Both removals are attempted even when one
+ * fails, so a failure leaves as little behind as it can; the first failure, in the order graph root
+ * then repo, is the rejection, and a repo failure behind it is reported through `warn`.
+ */
+export async function cleanupTestRepo(tmpDir: string, options: CleanupTestRepoOptions = {}): Promise<void> {
+  const [graphRoot, repo] = await Promise.allSettled([
+    removeTree(testGraphRootForRepo(tmpDir), options),
+    removeTree(tmpDir, options),
+  ]);
+  if (graphRoot.status === "rejected") {
+    if (repo.status === "rejected") {
+      const reason: unknown = repo.reason;
+      const detail = reason instanceof Error ? reason.message : String(reason);
+      (options.warn ?? console.warn)(`[graft test cleanup] could not remove ${tmpDir} either: ${detail}`);
+    }
+    throw graphRoot.reason;
+  }
+  if (repo.status === "rejected") throw repo.reason;
 }

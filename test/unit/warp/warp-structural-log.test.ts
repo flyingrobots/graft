@@ -16,8 +16,8 @@ describe("warp: structural-log-from-graph", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-warp-log-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

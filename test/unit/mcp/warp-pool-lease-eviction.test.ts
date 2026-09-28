@@ -149,7 +149,7 @@ describe("mcp: warp pool lease eviction", () => {
     } finally {
       await first?.release();
       await second?.release();
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 

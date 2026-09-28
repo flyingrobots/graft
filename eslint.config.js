@@ -270,6 +270,8 @@ export default tseslint.config(
     ignores: [
       "bin/",
       "dist/",
+      "dist.staging.*/",
+      "dist.retired.*/",
       "coverage/",
       "node_modules/",
       "src/generated/",

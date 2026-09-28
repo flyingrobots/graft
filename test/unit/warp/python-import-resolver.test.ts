@@ -63,7 +63,7 @@ async function resolveEdges(
         .sort((left, right) => `${String(left.importedName)}:${String(left.localName)}`.localeCompare(`${String(right.importedName)}:${String(right.localName)}`)),
     };
   } finally {
-    cleanupTestRepo(cwd);
+    await cleanupTestRepo(cwd);
   }
 }
 
@@ -207,7 +207,7 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
       const refs = await referencesForSymbol(ctx, "pending_ids", "app/alpha/sources.py");
       expect(refs).toEqual([{ filePath: "app/beta/cli.py", importedName: "pending_ids", localName: "pending_ids" }]);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 
@@ -243,7 +243,7 @@ describe("warp: Python import resolver", { timeout: 15000 }, () => {
         "sym:app/alpha/sources.py:scan_survivors",
       ]);
     } finally {
-      cleanupTestRepo(cwd);
+      await cleanupTestRepo(cwd);
     }
   });
 });

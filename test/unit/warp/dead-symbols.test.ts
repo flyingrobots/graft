@@ -16,8 +16,8 @@ describe("warp: dead-symbol-detection", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-dead-sym-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

@@ -10,9 +10,9 @@ import { FakeFileSystem } from "../../helpers/fake-fs.js";
 describe("repo workspace library API", () => {
   let repoDir: string | null = null;
 
-  afterEach(() => {
+  afterEach(async () => {
     if (repoDir !== null) {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       repoDir = null;
     }
   });

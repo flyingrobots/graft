@@ -15,8 +15,8 @@ describe("warp: structural-blame-from-graph", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-warp-blame-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

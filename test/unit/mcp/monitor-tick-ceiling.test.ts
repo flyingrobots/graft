@@ -5,17 +5,17 @@ import * as path from "node:path";
 import { runMonitorTickJob, type MonitorTickWorkerJob } from "../../../src/mcp/monitor-tick-job.js";
 import { cleanupTestRepo, createCommittedTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
 function committedRepo(): string {
   const dir = createCommittedTestRepo("graft-ceiling-");
-  cleanups.push(() => { cleanupTestRepo(dir); });
+  cleanups.push(async () => { await cleanupTestRepo(dir); });
   return dir;
 }
 
@@ -25,13 +25,13 @@ function manyFileRepo(fileCount: number): string {
     files[`src/file-${String(index)}.ts`] = `export const value${String(index)} = ${String(index)};\n`;
   }
   const dir = createCommittedTestRepo("graft-ceiling-many-", files);
-  cleanups.push(() => { cleanupTestRepo(dir); });
+  cleanups.push(async () => { await cleanupTestRepo(dir); });
   return dir;
 }
 
 function emptyRepo(): string {
   const dir = createTestRepo("graft-ceiling-empty-");
-  cleanups.push(() => { cleanupTestRepo(dir); });
+  cleanups.push(async () => { await cleanupTestRepo(dir); });
   return dir;
 }
 

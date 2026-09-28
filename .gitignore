@@ -11,6 +11,8 @@ node_modules/
 .Trashes
 *.tgz
 dist/
+/dist.staging.*/
+/dist.retired.*/
 coverage/
 .obsidian/
 anti-sludge-policy-bundle/

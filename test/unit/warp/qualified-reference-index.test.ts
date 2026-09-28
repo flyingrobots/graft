@@ -34,7 +34,7 @@ async function indexedReferences(
       importedFile: await referencesForSymbol(ctx, "*", targetFilePath),
     };
   } finally {
-    cleanupTestRepo(cwd);
+    await cleanupTestRepo(cwd);
   }
 }
 

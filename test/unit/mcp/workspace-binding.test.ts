@@ -23,7 +23,7 @@ import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 import { fakeSidecarWarpPool, sidecarServesWorktree } from "../../helpers/warp-pool.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
 function fakeWarpLocation(graftDir: string) {
   const repoPath = path.join(graftDir, "graphs", "warp.git");
@@ -36,17 +36,17 @@ function fakeWarpLocation(graftDir: string) {
   };
 }
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
   vi.restoreAllMocks();
 });
 
 function createCommittedRepo(): string {
   const repoDir = createCommittedTestRepo("graft-workspace-bind-");
-  cleanups.push(() => {
-    cleanupTestRepo(repoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(repoDir);
   });
   return repoDir;
 }

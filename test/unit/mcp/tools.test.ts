@@ -17,11 +17,11 @@ const LARGE_TS = "fixtures/large.ts";
 const MEDIUM_TS = "fixtures/medium.ts";
 const BANNED_IMAGE = "fixtures/ban-targets/image.png";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
@@ -351,7 +351,7 @@ describe("mcp: tool handlers", () => {
 
   it("doctor returns sludge signals when requested", async () => {
     const repoDir = createTestRepo("graft-mcp-tools-sludge-");
-    cleanups.push(() => { cleanupTestRepo(repoDir); });
+    cleanups.push(async () => { await cleanupTestRepo(repoDir); });
     fs.mkdirSync(path.join(repoDir, "src"), { recursive: true });
     fs.writeFileSync(path.join(repoDir, "src", "sloppy.ts"), [
       "/** @typedef {{ name: string }} UserShape */",
@@ -457,8 +457,8 @@ describe("mcp: tool handlers", () => {
 
   it("activity_view returns recent bounded local artifact history anchored to the current commit", async () => {
     const repoDir = createTestRepo("graft-mcp-activity-view-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
     git(repoDir, "add -A");
@@ -527,8 +527,8 @@ describe("mcp: tool handlers", () => {
 
   it("causal_attach records explicit attach evidence after a continuity fork", async () => {
     const repoDir = createTestRepo("graft-causal-attach-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
     git(repoDir, "add -A");
@@ -721,9 +721,9 @@ describe("mcp: policy check middleware", () => {
     git(tmpDir, "add -A");
     git(tmpDir, "commit -m init");
     const isolated = createIsolatedServer({ projectRoot: tmpDir });
-    cleanups.push(() => {
+    cleanups.push(async () => {
       isolated.cleanup();
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     });
     const server = isolated.server;
     const result = await server.callTool("code_find", {

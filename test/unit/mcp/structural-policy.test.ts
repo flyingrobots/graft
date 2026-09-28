@@ -33,7 +33,7 @@ describe("mcp: structural tool policy enforcement", () => {
         expect.objectContaining({ name: "draftOnly" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -55,7 +55,7 @@ describe("mcp: structural tool policy enforcement", () => {
         expect.objectContaining({ path: "src/tracked.ts" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -92,7 +92,7 @@ describe("mcp: structural tool policy enforcement", () => {
         expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -127,7 +127,7 @@ describe("mcp: structural tool policy enforcement", () => {
         expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -166,7 +166,7 @@ describe("mcp: structural tool policy enforcement", () => {
         expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -192,7 +192,7 @@ describe("mcp: structural tool policy enforcement", () => {
         expect.objectContaining({ path: "generated/hidden.ts", reason: "GRAFTIGNORE" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

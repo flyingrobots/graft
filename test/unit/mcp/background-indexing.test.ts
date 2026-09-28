@@ -3,17 +3,17 @@ import * as fs from "node:fs";
 import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
 function committedRepo(): string {
   const dir = createCommittedTestRepo("graft-bg-index-");
-  cleanups.push(() => { cleanupTestRepo(dir); });
+  cleanups.push(async () => { await cleanupTestRepo(dir); });
   return dir;
 }
 

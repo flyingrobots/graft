@@ -15,12 +15,12 @@ import {
 import { stableWorkspaceId } from "../../../src/mcp/workspace-router-resolution.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../../..");
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
@@ -34,8 +34,8 @@ function tempDir(prefix: string): string {
 
 function sourceRepo(): string {
   const directory = createCommittedTestRepo("graft-sidecar-source-");
-  cleanups.push(() => {
-    cleanupTestRepo(directory);
+  cleanups.push(async () => {
+    await cleanupTestRepo(directory);
   });
   return fs.realpathSync(directory);
 }

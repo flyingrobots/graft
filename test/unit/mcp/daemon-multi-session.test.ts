@@ -15,8 +15,8 @@ afterEach(async () => {
 
 function createCommittedRepo(prefix: string): string {
   const repoDir = createCommittedTestRepo(prefix);
-  cleanups.push(() => {
-    cleanupTestRepo(repoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(repoDir);
   });
   return repoDir;
 }

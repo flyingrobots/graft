@@ -78,7 +78,7 @@ describe("CORE_pr-review-structural-summary playback", () => {
       expect(result.stdout).toContain("- src/format.ts: formatting");
       expect(result.stdout.trimStart().startsWith("{")).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -104,7 +104,7 @@ describe("CORE_pr-review-structural-summary playback", () => {
         expect.objectContaining({ path: "src/format.ts", category: "formatting" }),
       ]));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

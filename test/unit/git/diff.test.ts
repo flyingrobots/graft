@@ -15,8 +15,8 @@ describe("git: diff helpers", () => {
     git(tmpDir, "commit -m initial");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("lists changed files between HEAD and working tree", async () => {
@@ -91,8 +91,8 @@ describe("git: diff helpers — rename-aware changed files", () => {
     git(tmpDir, "commit -m initial");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("returns renamed status with oldPath for renamed files", async () => {

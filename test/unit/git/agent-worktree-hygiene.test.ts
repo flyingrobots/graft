@@ -33,7 +33,7 @@ describe("agent worktree hygiene", () => {
     ]);
   });
 
-  it("passes when the git index does not contain agent worktree paths", () => {
+  it("passes when the git index does not contain agent worktree paths", async () => {
     const repoDir = createTestRepo("graft-agent-worktree-clean-");
     try {
       fs.writeFileSync(path.join(repoDir, "README.md"), "# clean\n");
@@ -41,11 +41,11 @@ describe("agent worktree hygiene", () => {
 
       expect(evaluateAgentWorktreeHygiene(repoDir).blockedPaths).toEqual([]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
-  it("blocks ignored embedded agent worktree gitlinks that are forced into the index", () => {
+  it("blocks ignored embedded agent worktree gitlinks that are forced into the index", async () => {
     const repoDir = createTestRepo("graft-agent-worktree-blocked-");
     try {
       fs.writeFileSync(path.join(repoDir, ".gitignore"), ".claude/worktrees/\n");
@@ -64,7 +64,7 @@ describe("agent worktree hygiene", () => {
         ".claude/worktrees/agent-1",
       ]);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

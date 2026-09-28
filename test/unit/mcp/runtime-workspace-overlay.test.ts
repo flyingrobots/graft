@@ -51,7 +51,7 @@ describe("mcp: runtime workspace overlay footing", () => {
       ]);
       expect(hookBootstrap.supportsCheckoutBoundaries).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -77,7 +77,7 @@ describe("mcp: runtime workspace overlay footing", () => {
       expect(hookBootstrap.missingHooks).toEqual(["post-merge", "post-rewrite"]);
       expect(hookBootstrap.supportsCheckoutBoundaries).toBe(false);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -124,7 +124,7 @@ describe("mcp: runtime workspace overlay footing", () => {
       expect(footing.workspaceOverlayId).toBe("overlay:test");
       expect(footing.hookBootstrap.posture).toBe("absent");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -167,7 +167,7 @@ describe("mcp: runtime workspace overlay footing", () => {
       expect(footing.hookBootstrap.supportsCheckoutBoundaries).toBe(true);
       expect(footing.latestHookEvent).toBeNull();
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -214,7 +214,7 @@ describe("mcp: runtime workspace overlay footing", () => {
         }),
       );
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

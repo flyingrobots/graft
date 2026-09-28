@@ -70,7 +70,7 @@ describe("warp: AST snapshot attachment", { timeout: 15000 }, () => {
       expect(JSON.stringify(snapshot)).toContain("import_statement");
       expect(JSON.stringify(snapshot)).toContain("function_declaration");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

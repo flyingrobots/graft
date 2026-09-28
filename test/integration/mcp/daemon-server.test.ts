@@ -280,7 +280,7 @@ describe("mcp: daemon transport and lifecycle", () => {
       fs.rmSync(roots.pop()!, { recursive: true, force: true });
     }
     while (repos.length > 0) {
-      cleanupTestRepo(repos.pop()!);
+      await cleanupTestRepo(repos.pop()!);
     }
     vi.restoreAllMocks();
     syncBuiltinESMExports();

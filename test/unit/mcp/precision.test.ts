@@ -35,7 +35,7 @@ describe("mcp: code_show", () => {
       expect(result["content"]).toContain("greet(name: string)");
       expect(result["source"]).toBe("live");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -55,7 +55,7 @@ describe("mcp: code_show", () => {
       expect(result["error"]).toContain("not found");
       expect(result["source"]).toBe("live");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -78,7 +78,7 @@ describe("mcp: code_show", () => {
       expect(result["content"]).toBeUndefined();
       expect((result["matches"] as unknown[]).length).toBe(2);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -116,7 +116,7 @@ describe("mcp: code_show", () => {
       expect(result["content"]).toContain('return "v1";');
       expect(result["content"]).not.toContain('return "v2";');
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -148,7 +148,7 @@ describe("mcp: code_show", () => {
       expect(result["content"]).toContain('return "v1";');
       expect(result["content"]).not.toContain('return "v2";');
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -173,7 +173,7 @@ describe("mcp: code_show", () => {
       expect(result["path"]).toBe("draft.ts");
       expect(result["content"]).toContain('return "draft";');
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -198,7 +198,7 @@ describe("mcp: code_show", () => {
       expect(result["projection"]).toBe("refused");
       expect(result["reason"]).toBe("GRAFTIGNORE");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -274,7 +274,7 @@ describe("mcp: code_find", () => {
       expect(matches.some((match) => match.name === "evaluatePolicy")).toBe(true);
       expect(matches.every((match) => typeof match.path === "string")).toBe(true);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -300,7 +300,7 @@ describe("mcp: code_find", () => {
       expect(result["source"]).toBe("live");
       expect(names).toEqual(["Adapter", "adapterFactory", "GitWarpAdapter"]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -332,7 +332,7 @@ describe("mcp: code_find", () => {
       expect(matches[0]?.kind).toBe("class");
       expect(matches[0]?.path).toBe("src/policy/evaluate.ts");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -357,7 +357,7 @@ describe("mcp: code_find", () => {
         expect.objectContaining({ name: "PolicyEngine", path: "src/policy/evaluate.ts" }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -376,7 +376,7 @@ describe("mcp: code_find", () => {
       expect(result["total"]).toBe(0);
       expect(result["matches"]).toEqual([]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -393,7 +393,7 @@ describe("mcp: code_find", () => {
         query: "outside*",
       })).rejects.toThrow(/git file listing failed/);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -423,7 +423,7 @@ describe("mcp: code_find", () => {
       expect(matches[0]?.startLine).toBeDefined();
       expect(matches[0]?.endLine).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -450,7 +450,7 @@ describe("mcp: code_find", () => {
       expect(result["source"]).toBe("warp");
       expect(names).toEqual(["GitWarpAdapter", "ScenarioFixtureAdapter"]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -481,7 +481,7 @@ describe("mcp: code_find", () => {
       expect(matches[0]?.name).toBe("draftHelper");
       expect(matches[0]?.path).toBe("src/draft.ts");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -540,7 +540,7 @@ describe("mcp: code_find", () => {
       expect(result["projection"]).toBe("refused");
       expect(result["reason"]).toBe("GRAFTIGNORE");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

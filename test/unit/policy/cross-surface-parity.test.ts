@@ -65,9 +65,9 @@ const hardDenialCases: readonly {
 describe("policy: cross-surface parity", () => {
   const cleanups: string[] = [];
 
-  afterEach(() => {
+  afterEach(async () => {
     while (cleanups.length > 0) {
-      cleanupTestRepo(cleanups.pop()!);
+      await cleanupTestRepo(cleanups.pop()!);
     }
   });
 

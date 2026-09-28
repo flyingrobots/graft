@@ -48,7 +48,7 @@ describe("mcp: graft_blame", () => {
         endLine: 3,
       }));
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -86,7 +86,7 @@ describe("mcp: graft_blame", () => {
       expect(history[1]?.startLine).toBeUndefined();
       expect(history[1]?.endLine).toBeUndefined();
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

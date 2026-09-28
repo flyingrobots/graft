@@ -17,8 +17,8 @@ describe("warp: structural-churn-from-graph", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("graft-warp-churn-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function openCtx(): Promise<WarpContext> {

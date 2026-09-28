@@ -44,21 +44,6 @@ function scrubbedEnvWithPath(binDir: string): NodeJS.ProcessEnv {
   return env;
 }
 
-let packageBinBuilt = false;
-
-function ensurePackageBinBuild(): void {
-  if (packageBinBuilt) return;
-  if (fs.existsSync(path.join(ROOT, "dist", "cli", "entrypoint.js"))) {
-    packageBinBuilt = true;
-    return;
-  }
-  execFileSync("pnpm", ["build"], {
-    cwd: ROOT,
-    stdio: "inherit",
-  });
-  packageBinBuilt = true;
-}
-
 describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
   it("renders a human review summary for enhance --since in a temp repo", async () => {
     const repoDir = createTestRepo("graft-enhance-cli-");
@@ -81,7 +66,7 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
       expect(stdout.text()).toContain("symbols: +1 -0 ~1");
       expect(stdout.text()).toContain("semver impact: minor");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -111,17 +96,17 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
       expect(parsed.structural).toMatchObject({ changedFiles: 1, addedSymbols: 1, changedSymbols: 1 });
       expect(parsed.exports).toMatchObject({ changed: true, semverImpact: "minor" });
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
-  it("supports Git external-command invocation through git graft in a temp repo", () => {
+  it("supports Git external-command invocation through git graft in a temp repo", async () => {
     const repoDir = createTestRepo("graft-enhance-git-external-");
     const binDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-enhance-bin-"));
     try {
       writeScenario(repoDir);
-      ensurePackageBinBuild();
-      fs.symlinkSync(path.resolve(import.meta.dirname, "../../../bin/graft.js"), path.join(binDir, "git-graft"));
+      // bin/graft.js loads dist/, which the global setup has rebuilt if it was missing or stale.
+      fs.symlinkSync(path.join(ROOT, "bin", "graft.js"), path.join(binDir, "git-graft"));
 
       const output = execFileSync("git", ["graft", "enhance", "--since", "HEAD~1"], {
         cwd: repoDir,
@@ -132,7 +117,7 @@ describe("cli: git graft enhance integration", { timeout: 30_000 }, () => {
       expect(output).toContain("Git Graft Enhance");
       expect(output).toContain("range: HEAD~1..HEAD");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       fs.rmSync(binDir, { recursive: true, force: true });
     }
   });

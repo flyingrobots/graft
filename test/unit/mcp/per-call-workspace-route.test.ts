@@ -22,8 +22,8 @@ function createRepo(prefix: string, content: string): string {
     "app.ts": content,
   });
   const realRepoDir = fs.realpathSync(repoDir);
-  cleanups.push(() => {
-    cleanupTestRepo(realRepoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(realRepoDir);
   });
   return realRepoDir;
 }

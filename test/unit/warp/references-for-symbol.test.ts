@@ -16,8 +16,8 @@ describe("warp: referencesForSymbol", { timeout: 15000 }, () => {
     tmpDir = createTestRepo("warp-refs-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   async function setupAndIndex(files: Record<string, string>) {

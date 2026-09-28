@@ -7,9 +7,9 @@ import { createServerInRepo, parse } from "../../test/helpers/mcp.js";
 
 const cleanups: string[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanupTestRepo(cleanups.pop()!);
+    await cleanupTestRepo(cleanups.pop()!);
   }
 });
 

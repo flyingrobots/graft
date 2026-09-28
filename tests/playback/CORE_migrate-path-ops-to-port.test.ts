@@ -31,8 +31,8 @@ function createRepo(): string {
   const repoDir = createCommittedTestRepo("graft-path-ops-playback-", {
     "app.ts": "export const ok = true;\n",
   });
-  cleanups.push(() => {
-    cleanupTestRepo(repoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(repoDir);
   });
   return repoDir;
 }

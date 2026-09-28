@@ -66,9 +66,9 @@ async function runCliJson(cwd: string, args: readonly string[]): Promise<Record<
 describe("contracts: output schemas", () => {
   const cleanups: string[] = [];
 
-  afterEach(() => {
+  afterEach(async () => {
     while (cleanups.length > 0) {
-      cleanupTestRepo(cleanups.pop()!);
+      await cleanupTestRepo(cleanups.pop()!);
     }
     for (const graphRoot of cliGraphRoots.values()) {
       fs.rmSync(graphRoot, { recursive: true, force: true });

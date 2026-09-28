@@ -36,7 +36,7 @@ describe("dedicated daemon inspection transport", () => {
     for (const client of clients.splice(0)) await client.close();
     for (const daemon of daemons.splice(0)) await daemon.close();
     for (const server of servers.splice(0)) await new Promise<void>(resolve => { server.close(() => { resolve(); }); });
-    for (const repo of repos.splice(0)) cleanupTestRepo(repo);
+    for (const repo of repos.splice(0)) await cleanupTestRepo(repo);
     for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
     process.exitCode = 0;
   });

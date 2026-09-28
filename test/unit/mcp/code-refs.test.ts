@@ -58,7 +58,7 @@ describe("mcp: code_refs", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -91,7 +91,7 @@ describe("mcp: code_refs", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -125,7 +125,7 @@ describe("mcp: code_refs", () => {
         }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -153,7 +153,7 @@ describe("mcp: code_refs", () => {
         "console.log(surface?.cells);",
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -190,7 +190,7 @@ describe("mcp: code_refs", () => {
         expect.objectContaining({ path: "packages/beta/src/consumer.ts", line: 2 }),
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -216,7 +216,7 @@ describe("mcp: code_refs", () => {
       expect(result["reason"]).toBe("GRAFTIGNORE");
       expect(result["source"]).toBe("text_fallback");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

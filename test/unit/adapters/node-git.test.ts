@@ -6,9 +6,9 @@ import { cleanupTestRepo, createTestRepo, git } from "../../helpers/git.js";
 
 let repoDir: string | null = null;
 
-afterEach(() => {
+afterEach(async () => {
   if (repoDir !== null) {
-    cleanupTestRepo(repoDir);
+    await cleanupTestRepo(repoDir);
     repoDir = null;
   }
 });

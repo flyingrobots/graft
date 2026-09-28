@@ -3,15 +3,15 @@ import * as fs from "node:fs";
 import { cleanupTestRepo, createCommittedTestRepo } from "../../test/helpers/git.js";
 import { createManagedDaemonServer, createServerInRepo, parse } from "../../test/helpers/mcp.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   const errors: unknown[] = [];
   while (cleanups.length > 0) {
     const cleanup = cleanups.pop();
     if (cleanup === undefined) continue;
     try {
-      cleanup();
+      await cleanup();
     } catch (error) {
       errors.push(error);
     }
@@ -32,8 +32,8 @@ function createRepo(prefix: string, marker: string): string {
     ].join("\n"),
   });
   const realRepoDir = fs.realpathSync.native(repoDir);
-  cleanups.push(() => {
-    cleanupTestRepo(realRepoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(realRepoDir);
   });
   return realRepoDir;
 }

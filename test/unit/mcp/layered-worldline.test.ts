@@ -40,7 +40,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(result["source"]).toBe("warp");
         expect(result["layer"]).toBe("commit_worldline");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -69,7 +69,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(result["files"]).toBeDefined();
         expect(result["layer"]).toBe("ref_view");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -97,7 +97,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(result["source"]).toBe("live");
         expect(result["layer"]).toBe("workspace_overlay");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -113,7 +113,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         expect(result["layer"]).toBe("workspace_overlay");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -152,7 +152,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(transition.fromRef).toBe("feature");
         expect(transition.toRef).toBe(baseBranch);
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
   });
@@ -174,7 +174,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(result["error"]).toBeDefined();
         expect(result["layer"]).toBe("commit_worldline");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -203,7 +203,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(overlay.confidence).toBe("low");
         expect(overlay.evidence).toBeDefined();
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
   });
@@ -233,7 +233,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(overlay.stagedPaths).toBe(0);
         expect(overlay.changedPaths).toBe(1);
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -268,7 +268,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(transition.toRef ?? null).toBeNull();
         expect(transition.toCommit).toBe(c1);
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -289,7 +289,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(transition?.kind).toBe("checkout");
         expect(transition?.toRef).toBe("feature/rebase-ui");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -325,7 +325,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         }));
         expect(historical["layer"]).toBe("commit_worldline");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -369,7 +369,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         expect(semanticTransition?.phase).toBe("completed_or_cleared");
         expect(semanticTransition?.authority).toBe("repo_snapshot");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
 
@@ -414,7 +414,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
         }));
         expect(refView["layer"]).toBe("ref_view");
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
   });
@@ -447,7 +447,7 @@ describe("mcp: layered worldline model", { timeout: 15000 }, () => {
 
         expect(new Set(epochs).size).toBe(epochs.length);
       } finally {
-        cleanupTestRepo(tmpDir);
+        await cleanupTestRepo(tmpDir);
       }
     });
   });

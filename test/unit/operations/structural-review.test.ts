@@ -28,8 +28,8 @@ describe("operations: structural review", () => {
     tmpDir = createTestRepo("struct-review-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("categorizes structural vs formatting files", async () => {
@@ -249,8 +249,8 @@ describe("operations: structural review — export-aware breaking changes", () =
     tmpDir = createTestRepo("review-export-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("does NOT flag removal of non-exported symbol as breaking", async () => {
@@ -350,8 +350,8 @@ describe("operations: structural review — renamed files", () => {
     tmpDir = createTestRepo("review-rename-");
   });
 
-  afterEach(() => {
-    cleanupTestRepo(tmpDir);
+  afterEach(async () => {
+    await cleanupTestRepo(tmpDir);
   });
 
   it("renamed file produces ZERO breaking changes", async () => {

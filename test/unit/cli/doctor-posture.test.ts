@@ -34,7 +34,7 @@ describe("cli: doctor repo-generic posture", () => {
       expect(stderr).toBe("");
       expectRepoGenericDoctorPosture(stdout);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -52,7 +52,7 @@ describe("cli: doctor repo-generic posture", () => {
         normalizeDoctorPostureForCommandParity(topLevel.stdout),
       );
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -96,7 +96,7 @@ describe("cli: doctor repo-generic posture", () => {
       expect(parsed.repoConcurrency).toBeDefined();
       expect(parsed.integrityChecks).toBeUndefined();
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -111,7 +111,7 @@ describe("cli: doctor repo-generic posture", () => {
       expect(stdout).not.toContain("lint gate");
       expect(stdout).not.toContain("mandatory");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -123,7 +123,7 @@ describe("cli: doctor repo-generic posture", () => {
       expect(stderr).toBe("");
       expectRepoGenericDoctorPosture(stdout);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -135,7 +135,7 @@ describe("cli: doctor repo-generic posture", () => {
       expect(stderr).toBe("");
       expectRepoGenericDoctorPosture(stdout);
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

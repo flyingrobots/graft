@@ -64,7 +64,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       });
       expect(readFile(repoDir, "src/app.ts")).toBe("export const value = 'new';\n");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -88,7 +88,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       expect(readFile(repoDir, "src/app.ts")).toContain("first = 'updated'");
       expect(readFile(repoDir, "src/app.ts")).toContain("second = 'other'");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -130,7 +130,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       expect(readFile(repoDir, "src/app.ts")).toContain("first = 'same'");
       expect(readFile(repoDir, "src/app.ts")).toContain("second = 'same'");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -179,7 +179,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
         });
       }
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       fs.rmSync(outsideDir, { recursive: true, force: true });
     }
   });
@@ -209,7 +209,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       expect(result).not.toHaveProperty("readRangeEvidence");
       expect(result).not.toHaveProperty("writePolicy");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -274,7 +274,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       });
       expect(readFile(repoDir, "src/app.ts")).toBe("export const value = 'new';\n");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 
@@ -320,7 +320,7 @@ describe("SURFACE_agent-dx-governed-edit playback", () => {
       expect(completed).not.toHaveProperty("provenance");
       expect(completed).not.toHaveProperty("causalWriteEvent");
     } finally {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
     }
   });
 });

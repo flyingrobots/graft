@@ -5,18 +5,18 @@ import * as path from "node:path";
 import { createManagedDaemonServer, parse } from "../../helpers/mcp.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
 function createCommittedRepo(): string {
   const repoDir = createCommittedTestRepo("graft-monitor-");
-  cleanups.push(() => {
-    cleanupTestRepo(repoDir);
+  cleanups.push(async () => {
+    await cleanupTestRepo(repoDir);
   });
   return repoDir;
 }

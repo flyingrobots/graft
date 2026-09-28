@@ -197,8 +197,8 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
 
   it("Is `GitClient` async and backed by `@git-stunts/plumbing` instead of synchronous shell execution?", async () => {
     const repoDir = createTestRepo("graft-playback-node-git-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
     git(repoDir, "add -A");
@@ -241,8 +241,8 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
 
   it("Does the daemon keep session state authoritative in-process while workers execute against immutable snapshots and return deltas?", async () => {
     const repoDir = createTestRepo("graft-playback-worker-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
     fs.writeFileSync(path.join(repoDir, "app.ts"), [
       "export function greet(name: string): string {",
@@ -340,8 +340,8 @@ describe("0058 playback: system-wide resource pressure and fairness", () => {
 
   it("Do background monitors run through the same pressure and fairness scheduler as foreground repo work?", async () => {
     const repoDir = createTestRepo("graft-playback-monitor-");
-    cleanups.push(() => {
-      cleanupTestRepo(repoDir);
+    cleanups.push(async () => {
+      await cleanupTestRepo(repoDir);
     });
     fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
     git(repoDir, "add -A");

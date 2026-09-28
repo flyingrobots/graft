@@ -10,11 +10,11 @@ import type { ResolvedWorkspace } from "../../../src/mcp/workspace-router.js";
 import type { FileSystem } from "../../../src/ports/filesystem.js";
 import { cleanupTestRepo, createCommittedTestRepo, git } from "../../helpers/git.js";
 
-const cleanups: (() => void)[] = [];
+const cleanups: (() => void | Promise<void>)[] = [];
 
-afterEach(() => {
+afterEach(async () => {
   while (cleanups.length > 0) {
-    cleanups.pop()!();
+    await cleanups.pop()!();
   }
 });
 
@@ -28,8 +28,8 @@ function tempDir(prefix: string): string {
 
 function committedRepo(prefix: string): string {
   const directory = fs.realpathSync(createCommittedTestRepo(prefix));
-  cleanups.push(() => {
-    cleanupTestRepo(directory);
+  cleanups.push(async () => {
+    await cleanupTestRepo(directory);
   });
   return directory;
 }

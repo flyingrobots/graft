@@ -61,7 +61,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const fooRef = refs.find((e) => e.to === "sym:src/utils.ts:foo");
       expect(fooRef).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -90,7 +90,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       expect(specNode!["importedName"]).toBe("foo");
       expect(specNode!["localName"]).toBe("baz");
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -111,7 +111,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const defaultRef = refs.find((e) => e.to === "sym:src/bar.ts:default");
       expect(defaultRef).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -131,7 +131,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const nsRef = refs.find((e) => e.to === "file:src/utils.ts");
       expect(nsRef).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -152,7 +152,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const fooRef = refs.find((e) => e.to === "sym:src/bar.ts:foo");
       expect(fooRef).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -172,7 +172,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const barReexport = reexports.find((e) => e.to === "file:src/bar.ts");
       expect(barReexport).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -192,7 +192,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const utilsResolve = resolves.find((e) => e.to === "file:src/utils.ts");
       expect(utilsResolve).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -217,7 +217,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const fooRef = refs.find((e) => e.to === "sym:src/utils.ts:foo");
       expect(fooRef).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -255,7 +255,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
         "sym:src/module-api.d.mts:ModuleOptions",
       ]);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -276,7 +276,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const nodes = await obs.getNodes();
       expect(nodes.length).toBeGreaterThan(0);
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 
@@ -296,7 +296,7 @@ describe("warp: AST import resolver", { timeout: 15000 }, () => {
       const fooResolve = resolves.find((e) => e.to === "file:src/foo.ts");
       expect(fooResolve).toBeDefined();
     } finally {
-      cleanupTestRepo(tmpDir);
+      await cleanupTestRepo(tmpDir);
     }
   });
 });

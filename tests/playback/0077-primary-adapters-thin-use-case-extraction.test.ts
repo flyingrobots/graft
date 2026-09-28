@@ -24,9 +24,9 @@ function read(filePath: string): string {
 describe("0077 primary adapters thin use-case extraction", () => {
   let repoDir: string | null = null;
 
-  afterEach(() => {
+  afterEach(async () => {
     if (repoDir !== null) {
-      cleanupTestRepo(repoDir);
+      await cleanupTestRepo(repoDir);
       repoDir = null;
     }
   });
