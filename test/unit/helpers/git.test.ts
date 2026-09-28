@@ -130,7 +130,8 @@ describe("test helper: git isolation", { timeout: GIT_CASE_TIMEOUT_MS }, () => {
   });
 });
 
-// Oracle: cleanupTestRepo removes the graph root, then the repo, each through the injected remover.
+// Oracle: cleanupTestRepo removes the graph root and the repo, each through the injected remover,
+// attempting both even when one fails and rejecting with the first failure (graph root first).
 // Only ENOTEMPTY and EBUSY are retried, four times, after 25, 50, 100 and 200 ms by default; every
 // retry prints one warning naming the path and the code; any other error rejects at once; after the
 // last retry the removal rejects with the error the remover threw. Deterministic: the remover is a
@@ -189,6 +190,17 @@ describe("test helper: cleanupTestRepo retries transient removal errors", { time
 
     expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo]);
     expect(warnings).toEqual([]);
+  });
+
+  it("still removes the repo when removing the graph root fails, then rejects with the graph root's error", async () => {
+    const denied = fsError("EACCES");
+    const remover = plannedRemover(`${repo}.graft-graphs`, [denied]);
+
+    await expect(
+      cleanupTestRepo(repo, { remove: remover.remove, warn: () => undefined, retryDelayMs: 0 }),
+    ).rejects.toBe(denied);
+
+    expect(remover.calls).toEqual([`${repo}.graft-graphs`, repo]);
   });
 
   it("rejects with the remover's own error once ENOTEMPTY outlasts every retry", async () => {

@@ -184,9 +184,16 @@ async function removeTree(target: string, options: CleanupTestRepoOptions): Prom
 /**
  * Remove a temp directory created by createTestRepo, and its graph root. A removal that fails with
  * ENOTEMPTY or EBUSY is retried a few times with a warning each time, so a recurrence is visible;
- * any other error, or the last retry's error, rejects.
+ * any other error, or the last retry's error, rejects. Both removals are attempted even when one
+ * fails, so a failure leaves as little behind as it can; the first failure, in the order graph root
+ * then repo, is the rejection.
  */
 export async function cleanupTestRepo(tmpDir: string, options: CleanupTestRepoOptions = {}): Promise<void> {
-  await removeTree(testGraphRootForRepo(tmpDir), options);
-  await removeTree(tmpDir, options);
+  const results = await Promise.allSettled([
+    removeTree(testGraphRootForRepo(tmpDir), options),
+    removeTree(tmpDir, options),
+  ]);
+  for (const result of results) {
+    if (result.status === "rejected") throw result.reason;
+  }
 }
