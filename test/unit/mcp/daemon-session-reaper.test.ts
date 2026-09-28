@@ -5221,6 +5221,168 @@ describe("mcp: daemon session reaper", () => {
     expect(daemon.getHealthStatus().activeSessions).toBe(0);
   });
 
+  describe("staged session publication refusals", () => {
+    const initializeRequest = {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "vitest", version: "0.0.0" },
+      },
+    };
+
+    function recordingPublishStorage(publishErrors: unknown[]) {
+      return {
+        ...nodeDaemonSessionStorage,
+        async publishStagedSessionDirectory(
+          stagingDir: string,
+          sessionDir: string,
+          expectedIdentity: DaemonSessionDirectoryIdentity,
+          authority: DaemonSessionsRootAuthority,
+        ): Promise<void> {
+          try {
+            await nodeDaemonSessionStorage.publishStagedSessionDirectory(
+              stagingDir,
+              sessionDir,
+              expectedIdentity,
+              authority,
+            );
+          } catch (error) {
+            publishErrors.push(error);
+            throw error;
+          }
+        },
+      };
+    }
+
+    it("refuses to publish a staging directory that is not the one construction captured", async () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-publish-staged-identity-"));
+      const socketPath = path.join(rootDir, "custom.sock");
+      const sessionsRoot = path.join(rootDir, "sessions");
+      cleanups.push(() => {
+        fs.rmSync(rootDir, { recursive: true, force: true });
+      });
+      const publishErrors: unknown[] = [];
+      let capturedStagingDir: string | undefined;
+      const sessionStorage = {
+        ...recordingPublishStorage(publishErrors),
+        async captureSessionDirectoryIdentity(
+          sessionDir: string,
+        ): Promise<DaemonSessionDirectoryIdentity> {
+          const identity = await captureSessionDirectoryIdentity(sessionDir);
+          if (capturedStagingDir !== undefined) return identity;
+          // The staged directory is replaced after capture: construction holds
+          // an identity the directory at the staging name no longer has.
+          capturedStagingDir = sessionDir;
+          return { device: identity.device, inode: identity.inode + 1n };
+        },
+      };
+      const daemon = await startDaemonServer({
+        graftDir: rootDir,
+        socketPath,
+        sessionReaperIntervalMs: 0,
+        sessionStorage,
+      });
+      cleanups.push(() => daemon.close());
+
+      const initialize = await requestUnixJson(socketPath, "POST", "/mcp", initializeRequest);
+
+      expect(initialize.statusCode).toBe(500);
+      expect(capturedStagingDir).toBeDefined();
+      expect(publishErrors).toHaveLength(1);
+      expect(publishErrors[0]).toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
+      expect((publishErrors[0] as Error).message)
+        .toBe(`Refusing unsafe daemon session directory: ${capturedStagingDir!}`);
+      // Nothing was published and the staging directory was rolled back.
+      expect(fs.readdirSync(sessionsRoot)).toEqual([]);
+      expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    });
+
+    it("refuses to publish over a canonical session name that is already taken and leaves its occupant untouched", async () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-publish-name-taken-"));
+      const socketPath = path.join(rootDir, "custom.sock");
+      const sessionsRoot = path.join(rootDir, "sessions");
+      cleanups.push(() => {
+        fs.rmSync(rootDir, { recursive: true, force: true });
+      });
+      const publishErrors: unknown[] = [];
+      const daemon = await startDaemonServer({
+        graftDir: rootDir,
+        socketPath,
+        sessionReaperIntervalMs: 0,
+        sessionStorage: recordingPublishStorage(publishErrors),
+      });
+      cleanups.push(() => daemon.close());
+      const takenSessionId = "00000000-0000-4000-8000-000000000a01";
+      const occupantDir = path.join(sessionsRoot, takenSessionId);
+      fs.mkdirSync(occupantDir, { mode: 0o700 });
+      const occupantBytes = Buffer.from("occupant bytes\n", "utf-8");
+      fs.writeFileSync(path.join(occupantDir, "occupant.txt"), occupantBytes);
+      const occupantIdentity = fs.lstatSync(occupantDir, { bigint: true });
+
+      randomUUIDMock.mockImplementationOnce(() => takenSessionId);
+      const initialize = await requestUnixJson(socketPath, "POST", "/mcp", initializeRequest);
+
+      expect(initialize.statusCode).toBe(500);
+      expect(publishErrors).toHaveLength(1);
+      expect(publishErrors[0]).toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
+      expect((publishErrors[0] as Error).message)
+        .toBe(`Refusing unsafe daemon session directory: ${occupantDir}`);
+      // The occupant is the same directory with the same bytes, and the
+      // staging directory was rolled back.
+      expect(fs.readdirSync(sessionsRoot)).toEqual([takenSessionId]);
+      expect(fs.readdirSync(occupantDir)).toEqual(["occupant.txt"]);
+      expect(fs.readFileSync(path.join(occupantDir, "occupant.txt")).equals(occupantBytes)).toBe(true);
+      const occupantAfter = fs.lstatSync(occupantDir, { bigint: true });
+      expect([occupantAfter.dev, occupantAfter.ino]).toEqual([occupantIdentity.dev, occupantIdentity.ino]);
+      expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    });
+
+    it("refuses a publication whose canonical name holds another directory once the rename lands, and leaves that directory alone", async () => {
+      const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gs-publish-post-rename-"));
+      const socketPath = path.join(rootDir, "custom.sock");
+      const sessionsRoot = path.join(rootDir, "sessions");
+      const displacedRoot = path.join(rootDir, "displaced");
+      fs.mkdirSync(displacedRoot);
+      cleanups.push(() => {
+        fs.rmSync(rootDir, { recursive: true, force: true });
+      });
+      const publishErrors: unknown[] = [];
+      let replacedSessionDir: string | undefined;
+      renameObserver.mockImplementation((oldPath: fs.PathLike, newPath: fs.PathLike, error: unknown) => {
+        if (error !== null || replacedSessionDir !== undefined) return;
+        if (!path.basename(String(oldPath)).startsWith(".graft-staging-")) return;
+        // Between the rename and the post-rename check, the published
+        // directory is moved away and another directory takes its name.
+        replacedSessionDir = String(newPath);
+        fs.renameSync(replacedSessionDir, path.join(displacedRoot, path.basename(replacedSessionDir)));
+        fs.mkdirSync(replacedSessionDir, { mode: 0o700 });
+      });
+      const daemon = await startDaemonServer({
+        graftDir: rootDir,
+        socketPath,
+        sessionReaperIntervalMs: 0,
+        sessionStorage: recordingPublishStorage(publishErrors),
+      });
+      cleanups.push(() => daemon.close());
+
+      const initialize = await requestUnixJson(socketPath, "POST", "/mcp", initializeRequest);
+
+      expect(initialize.statusCode).toBe(500);
+      expect(replacedSessionDir).toBeDefined();
+      expect(publishErrors).toHaveLength(1);
+      expect(publishErrors[0]).toBeInstanceOf(UnsafeDaemonSessionDirectoryError);
+      expect((publishErrors[0] as Error).message)
+        .toBe(`Refusing unsafe daemon session directory: ${replacedSessionDir!}`);
+      // The directory that took the name is not construction's and survives
+      // rollback.
+      expect(fs.readdirSync(sessionsRoot)).toEqual([path.basename(replacedSessionDir!)]);
+      expect(daemon.getHealthStatus().activeSessions).toBe(0);
+    });
+  });
+
   it("rolls back a session when transport connection fails", async () => {
     const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), "gsr-connect-"));
     const socketPath = path.join(rootDir, "daemon.sock");
