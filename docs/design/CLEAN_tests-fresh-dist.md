@@ -215,7 +215,10 @@ so the tested output is the shipped output, not a look-alike.
   file, and neither changes `dist/` nor invokes the compiler.
 - An input saved while the setup's build is running is never accepted as
   built: the setup rebuilds, and fails leaving `dist/` as it was if the
-  inputs change under three builds in a row.
+  inputs change under three builds in a row. A build whose output is no
+  newer than its inputs is also rebuilt, because a coarse file system clock
+  can give an output the same mtime as an input; three such builds in a row
+  fail the run the same way, naming the stale output.
 - A compiler exit of 2 (diagnostics, output emitted) warns and continues; any
   other failure, or a build that throws, aborts the run and leaves `dist/` as
   it was and no build directory beside it.

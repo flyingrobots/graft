@@ -254,6 +254,7 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
       } else if (result.status !== 0) {
         throw new Error(`Building dist/ for the test run failed with exit ${String(result.status)}:\n${result.output}`);
       }
+      let staleOutput: string | undefined;
       const changed = newestInput(root);
       if (changed === undefined || changed.mtimeMs <= readFrom) {
         const built = staleness(root, staging);
@@ -261,19 +262,19 @@ export async function ensureFreshDist(options: FreshDistOptions): Promise<FreshD
           // Published, or another process published a build between our renames and it is current.
           if (publish(root, staging) || staleness(root, dist).fresh) return "built";
         } else {
-          // An input saved after the recheck above also makes the output look stale: build again.
-          // With inputs unchanged since the build read them, stale output is a build defect.
-          const later = newestInput(root);
-          if (later === undefined || later.mtimeMs <= readFrom) {
-            throw new Error(`The dist/ build finished but its output is not current: ${built.reason}.`);
-          }
+          // Stale output means an input was saved after the recheck above, or the file system clock
+          // gave an output the same mtime as an input (coarse ticks). Neither can be told from the
+          // mtimes, so build again, and report the staleness if every attempt ends this way.
+          staleOutput = built.reason;
         }
       }
       if (attempt >= MAX_BUILD_ATTEMPTS) {
         const latest = newestInput(root);
         const cause = latest !== undefined && latest.mtimeMs > readFrom
           ? `${path.relative(root, latest.path)} changed during attempt ${String(attempt)}`
-          : "another process kept replacing dist/";
+          : staleOutput === undefined
+            ? "another process kept replacing dist/"
+            : `its output was not current: ${staleOutput}`;
         throw new Error(
           `dist/ could not be built from unchanging inputs in ${String(attempt)} attempts (${cause}); dist/ is `
           + "left as it was. Rerun once edits have stopped.",

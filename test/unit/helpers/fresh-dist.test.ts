@@ -525,6 +525,46 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
     expect(distText(root, "a.js")).toBe("export const a = 3;\n");
   });
 
+  it("rebuilds when the build's output carries the same mtime as the newest input it read", async ({ onTestFinished }) => {
+    // A file system clock with coarse ticks gives files written a few milliseconds apart the same
+    // mtime, so an output can be no newer than the input the build read even though nothing changed.
+    const root = await builtRoot(onTestFinished);
+    const source = path.join(root, "src", "a.ts");
+    fs.writeFileSync(source, "export const a = 2;\n");
+    for (const input of [source, ...CONFIG_FILES.map((file) => path.join(root, file))]) setTime(input, EDIT_TIME);
+    const inner = fakeBuild();
+    const build = async (buildRoot: string, outDir?: string): Promise<DistBuildResult> => {
+      const result = await inner.build(buildRoot, outDir);
+      if (inner.calls === 1 && outDir !== undefined) for (const output of walk(outDir)) setTime(output, EDIT_TIME);
+      return result;
+    };
+
+    await expect(ensureFreshDist({ root, build })).resolves.toBe("built");
+
+    expect(inner.calls).toBe(2);
+    expect(distText(root, "a.js")).toBe("export const a = 2;\n");
+  });
+
+  it("gives up after its attempts, naming the stale output, when every build's output is no newer than its inputs", async ({ onTestFinished }) => {
+    const root = await builtRoot(onTestFinished);
+    const source = path.join(root, "src", "a.ts");
+    fs.writeFileSync(source, "export const a = 2;\n");
+    for (const input of [source, ...CONFIG_FILES.map((file) => path.join(root, file))]) setTime(input, EDIT_TIME);
+    const inner = fakeBuild();
+    const build = async (buildRoot: string, outDir?: string): Promise<DistBuildResult> => {
+      const result = await inner.build(buildRoot, outDir);
+      if (outDir !== undefined) for (const output of walk(outDir)) setTime(output, EDIT_TIME);
+      return result;
+    };
+
+    await expect(ensureFreshDist({ root, build })).rejects.toThrow(
+      /could not be built from unchanging inputs in 3 attempts \(its output was not current: .* is not older than /u,
+    );
+
+    expect(inner.calls).toBe(3);
+    expect(distText(root, "a.js")).toBe("export const a = 1;\n");
+  });
+
   it("fails without building or removing dist, naming the file, when an input's mtime is in the future", async ({ onTestFinished }) => {
     const root = await builtRoot(onTestFinished);
     const future = new Date("2099-01-01T00:00:00Z");
