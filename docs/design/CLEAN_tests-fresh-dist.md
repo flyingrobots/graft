@@ -260,8 +260,20 @@ so the tested output is the shipped output, not a look-alike.
   filesystem I/O in its own temp directory, and the dead-owner cases spawn one
   short `node` child to obtain an exited pid, so the suite is not small.
   Ceiling: 2000 ms per case, enforced by the `describe` timeout; at most one
-  child process at a time; no network. Measured at 4 to 141 ms per case.
+  child process at a time; no network; suite budget 2 s for the file.
+  Measured on a macOS host, Node 26.0.0, 10 cores: 2 to 120 ms per case,
+  about 0.5 s for the file (second review; 4 to 141 ms at 22 cases).
   (Corrected in review: the first version declared the suite small.)
+- CI stage: pre-merge, as Rule 9 places medium tests. The CI workflow's
+  `test` job runs `pnpm test` (the Docker-isolated full Vitest run, whose
+  include pattern covers this file) in its Node 22 leg, on every pull request
+  to `main` and every push to `main`. Added in the second review.
+- Deletion criterion (Rule 18): delete the suite together with
+  `test/helpers/fresh-dist.ts` when no test executes `dist/` any more, or
+  when `dist/` freshness moves to a mechanism with its own tests covering
+  these claims (for example building before every run). Displaced risk if it
+  is deleted without either: a test executing a stale or partial `dist/`,
+  the failure this cycle exists to prevent. Added in the second review.
 - The concurrency case is two calls in one process against a build the test
   holds open. It synchronizes on the build having started, not on a timer:
   the second call starts only once the first holds the lock and is building.

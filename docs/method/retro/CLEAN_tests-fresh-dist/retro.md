@@ -171,6 +171,16 @@ before it, on the helper suite, unless stated.
   waiter, and the two can both be writing `dist/` until the first one fails; a process still running
   the first version could recreate its lock directory while a new-version waiter is removing a dead
   one.
+- **Case count and interrupted builds (finding 9).** Corrected above: the case count, and the
+  design's claim that the oldest-output rule catches an interrupted rebuild (only the pending marker
+  does). Documentation only; no RED applies.
+- **Rule 9 CI stage and Rule 18 deletion criterion (finding 10).** A search of `test/`, `tests/`,
+  `docs/testing/`, `docs/design/` and `docs/method/retro/` found no earlier CI-stage declaration and
+  one deletion criterion, written as prose in `docs/method/retro/CORE_graft-root-path/retro.md`. So
+  both follow the form this suite already used for size and owner: a line in the test file's header
+  and a bullet in the design packet's test strategy, with the criterion also recorded here. CI stage: pre-merge, the `test`
+  job's `pnpm test` step. Deletion criterion: when no test executes `dist/`, or a replacement
+  mechanism's tests cover these claims. Documentation only; no RED applies.
 
 ## Non-Goals Held
 

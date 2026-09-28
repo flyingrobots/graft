@@ -22,11 +22,21 @@ import {
 // taken over when their owner has exited or they are over two minutes old. keepDistFresh rechecks
 // before every watch-mode rerun.
 // Size: medium (TESTING_STANDARDS.md Rule 9). Owner: @flyingrobots. Resources: files only under a
-// private mkdtemp root per case, removed by that case (onTestFinished); at most one child process at a time (the
-// dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no network. Time:
-// mtimes are set with utimes; no case waits on a test timer. The helper's own lock poll is real
-// time, set to LOCK_POLL_MS. Ceiling: CASE_TIMEOUT_MS per case, enforced by the describe timeout.
-// Measured on a macOS host, Node 26: 4 to 141 ms per case, under 1 s for the file.
+// private mkdtemp root per case, removed by that case (onTestFinished); at most one child process
+// at a time (the dead-lock-owner cases spawn `node -e ""` to obtain a pid that has exited); no
+// network. `node:fs` is mocked as a pass-through whose readdirSync can run a one-shot hook for a
+// registered directory (the concurrent-deletion case). Time: mtimes are set with utimes; no case
+// waits on a test timer. The helper's own lock poll and lock timeout are real time, set per case
+// (LOCK_POLL_MS; 50 to 200 ms timeouts). Ceiling: CASE_TIMEOUT_MS per case, enforced by the
+// describe timeout; suite budget 2 s for the file. Measured on a macOS host, Node 26.0.0, 10 cores:
+// 2 to 120 ms per case, about 0.5 s for the file. Isolation checked alone, shuffled and with
+// --sequence.concurrent.
+// CI stage: pre-merge. The CI workflow's `test` job (Node 22 leg, step "Tests") runs `pnpm test`,
+// the Docker-isolated full Vitest run, on every pull request to main and every push to main.
+// Deletion criterion (Rule 18): delete with test/helpers/fresh-dist.ts when no test executes dist/
+// any more, or when dist/ freshness moves to a mechanism with its own tests that cover these claims
+// (for example building before every run). Displaced risk if deleted without either: a test
+// executing a stale or partial dist/ again, the failure this suite exists to prevent.
 
 const INPUT_TIME = new Date("2026-01-01T00:00:00Z");
 const BUILD_TIME = new Date("2026-02-01T00:00:00Z");
