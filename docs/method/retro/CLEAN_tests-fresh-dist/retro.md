@@ -128,6 +128,12 @@ before it, on the helper suite, unless stated.
   process repeatedly creating and removing `dist/` while the parent loops over the check) went from
   52 `ENOENT scandir` errors in 3821 iterations to 0 in 3754, run on a scratch copy of the fixed
   helper.
+- **`.d.ts` exemption untested (finding 3).** A case with `src/nested/types.d.ts` now requires the
+  second call to find `dist/` fresh; the fake build, like `tsc`, emits nothing for a declaration
+  file. RED with the exemption deleted from the helper (one line, restored byte for byte, run under
+  a scratch config with no global setup so the mutant could not touch the real `dist/`):
+  `dist/ is still stale after rebuilding it: dist/nested/types.d.js is missing for
+  src/nested/types.d.ts`. The real checkout depends on this: `src/warp/plumbing.d.ts`.
 
 ## Non-Goals Held
 

@@ -90,7 +90,10 @@ interface FakeBuild {
   readonly build: (root: string) => Promise<DistBuildResult>;
 }
 
-/** Stands in for tsc: writes dist/<source>.js carrying the source text, then reports `result`. */
+/**
+ * Stands in for tsc: writes dist/<source>.js carrying the source text for each .ts module, and like
+ * tsc emits nothing for a declaration file (.d.ts), then reports `result`.
+ */
 function fakeBuild(
   result: DistBuildResult = { status: 0, output: "" },
   gate?: Promise<void>,
@@ -107,7 +110,7 @@ function fakeBuild(
       if (gate !== undefined) await gate;
       const src = path.join(root, "src");
       for (const entry of walk(src)) {
-        if (!entry.endsWith(".ts")) continue;
+        if (!entry.endsWith(".ts") || entry.endsWith(".d.ts")) continue;
         const target = path.join(root, "dist", path.relative(src, entry).replace(/\.ts$/u, ".js"));
         fs.mkdirSync(path.dirname(target), { recursive: true });
         fs.writeFileSync(target, fs.readFileSync(entry, "utf8"));
@@ -287,6 +290,21 @@ describe("test support: ensureFreshDist", { timeout: CASE_TIMEOUT_MS }, () => {
 
     expect(build.calls).toBe(1);
     expect(distText(root, "nested/b.js")).toBe("export const b = 1;\n");
+  });
+
+  it("does not require an emitted .js for a declaration file under src", async () => {
+    const root = packageRoot();
+    const declaration = path.join(root, "src", "nested", "types.d.ts");
+    fs.writeFileSync(declaration, "export type T = number;\n");
+    for (const entry of [declaration, path.join(root, "src", "nested")]) setTime(entry, INPUT_TIME);
+    const first = fakeBuild();
+    await expect(ensureFreshDist({ root, build: first.build })).resolves.toBe("built");
+    expect(fs.existsSync(path.join(root, "dist", "nested", "types.d.js"))).toBe(false);
+    const build = fakeBuild();
+
+    await expect(ensureFreshDist({ root, build: build.build })).resolves.toBe("fresh");
+
+    expect(build.calls).toBe(0);
   });
 
   it("rebuilds after an earlier build ended before finishing, even though it had emitted every file", async () => {
