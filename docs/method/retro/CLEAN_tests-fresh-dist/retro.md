@@ -47,8 +47,8 @@ the Docker daemon on the development host did not answer on three attempts (see 
   first write: `tsc` reads every input before writing, so an edit saved in between is older than
   every output and passed (second review, finding 1). The setup now snapshots the newest input mtime
   before each build and rebuilds when any input is newer afterwards; see "Second review" below.
-- **Docker not exercised.** The claim that the image's `dist/` is fresh rests on the Dockerfile
-  running `pnpm build` after `COPY . .`. No container run in this cycle confirmed it. Second
+- **Docker not exercised locally.** The claim that the image's `dist/` is fresh rests on the Dockerfile
+  running `pnpm build` after `COPY . .`. No run observed whether the setup found it fresh. Second
   review: attempted and not run. On 2026-09-28 `docker info` on the development host did not
   return within 20 s (`timeout 20 docker info` exit 124; the client section printed, the server
   section never did), so the Docker daemon was not reachable and the Docker-isolated helper-suite
