@@ -837,8 +837,8 @@ sequenceDiagram
     alt exact worktree not opened in this session
         CP->>CP: ensure default authorization and opened record
     end
-    CP->>WARP: getOrOpen(repo, worktree, session actor)
-    WARP-->>CP: WarpContext from private bare sidecar
+    CP->>WARP: acquire(repo, worktree, session actor)
+    WARP-->>CP: leased WarpContext from private bare sidecar
     CP-->>Agent: content + requested/resolved route receipt
 
     Note over Agent,CP: Active binding remains unchanged

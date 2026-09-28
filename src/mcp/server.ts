@@ -20,6 +20,7 @@ import {
 import { DaemonControlPlane, type DaemonRuntimeDescriptor } from "./daemon-control-plane.js";
 import { DaemonRepoOverview } from "./daemon-repos.js";
 import { DaemonJobScheduler } from "./daemon-job-scheduler.js";
+import { resolveDaemonSchedulerConfig } from "./daemon-scheduler-config.js";
 import { InlineDaemonWorkerPool, type DaemonWorkerPool } from "./daemon-worker-pool.js";
 import { PersistentMonitorRuntime } from "./persistent-monitor-runtime.js";
 import {
@@ -28,7 +29,7 @@ import {
   resolveRuntimeObservabilityState,
   type RuntimeObservabilityState,
 } from "./runtime-observability.js";
-import { InMemoryWarpPool, type WarpPool } from "./warp-pool.js";
+import { InMemoryWarpPool, resolveWarpPoolOptions, type WarpResidentPool } from "./warp-pool.js";
 import { buildSessionWarpWriterId } from "../warp/writer-id.js";
 import { resolveWarpGraphRoot } from "../warp/sidecar.js";
 import { PersistedLocalHistoryStore } from "./persisted-local-history.js";
@@ -47,6 +48,7 @@ export interface GraftServer {
   injectSessionMessages(count: number): void;
   getWorkspaceStatus(): import("./workspace-router.js").WorkspaceStatus;
   getRuntimeCausalContext(): import("./runtime-causal-context.js").RuntimeCausalContext | null;
+  releaseWarpLeases(): Promise<void>;
   getMcpServer(): McpServer;
 }
 
@@ -59,7 +61,7 @@ export interface CreateGraftServerOptions {
   env?: Readonly<Record<string, string | undefined>>;
   runCapture?: Partial<RunCaptureConfig>;
   runtimeObservability?: Partial<RuntimeObservabilityState>;
-  warpPool?: WarpPool;
+  warpPool?: WarpResidentPool;
   daemonControlPlane?: DaemonControlPlane;
   monitorRuntime?: PersistentMonitorRuntime;
   daemonScheduler?: DaemonJobScheduler;
@@ -132,11 +134,12 @@ function createDaemonRuntimeParts(input: {
   readonly options: CreateGraftServerOptions;
   readonly codec: CanonicalJsonCodec;
   readonly gitClient: GitClient;
-  readonly warpPool: WarpPool;
+  readonly warpPool: WarpResidentPool;
 }): DaemonRuntimeParts {
   const { config, options, codec, gitClient, warpPool } = input;
   const scheduler = config.mode === "daemon"
-    ? (options.daemonScheduler ?? new DaemonJobScheduler())
+    ? (options.daemonScheduler
+      ?? new DaemonJobScheduler(resolveDaemonSchedulerConfig()))
     : null;
   const workerPool = config.mode === "daemon"
     ? (options.daemonWorkerPool ?? new InlineDaemonWorkerPool())
@@ -173,6 +176,7 @@ function createDaemonRuntimeParts(input: {
       mcpPath: "/mcp",
       healthPath: "/healthz",
       activeWarpRepos: warpPool.size(),
+      activeWarpResidents: warpPool.residentCount(),
       startedAt: daemonStartedAt,
     };
   });
@@ -191,7 +195,7 @@ function initWorkspaceRouter(input: {
   readonly config: ResolvedGraftServerConfig;
   readonly options: CreateGraftServerOptions;
   readonly gitClient: GitClient;
-  readonly warpPool: WarpPool;
+  readonly warpPool: WarpResidentPool;
   readonly persistedLocalHistory: PersistedLocalHistoryStore;
   readonly daemon: DaemonRuntimeParts;
 }): WorkspaceRouter {
@@ -278,6 +282,7 @@ function createGraftServerSurface(input: {
   readonly engine: ReturnType<typeof createInvocationEngine>;
   readonly ctx: ToolContext;
   readonly registered: RegisteredToolSurface;
+  readonly sessionStarted: Promise<void>;
 }): GraftServer {
   return {
     getRegisteredTools(): string[] {
@@ -300,10 +305,17 @@ function createGraftServerSurface(input: {
       return input.workspaceRouter.getStatus();
     },
     getRuntimeCausalContext() {
-      if (input.workspaceRouter.getStatus().bindState !== "bound") {
-        return null;
-      }
-      return input.workspaceRouter.captureExecutionContext().getCausalContext();
+      return input.workspaceRouter.getRuntimeCausalContext();
+    },
+    releaseWarpLeases(): Promise<void> {
+      return Promise.allSettled([
+        input.workspaceRouter.releaseWarpLeases(),
+        input.sessionStarted,
+      ]).then((results) => {
+        const errors: unknown[] = [];
+        for (const result of results) if (result.status === "rejected") errors.push(result.reason);
+        if (errors.length > 0) throw new AggregateError(errors, "Failed to settle Graft session shutdown");
+      });
     },
     getMcpServer(): McpServer {
       return input.mcpServer;
@@ -331,7 +343,10 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     logPath: observability.logPath,
     maxBytes: observability.maxBytes,
   });
-  const warpPool = options.warpPool ?? new InMemoryWarpPool({ graphRoot: config.graphRoot });
+  const warpPool = options.warpPool ?? new InMemoryWarpPool({
+    graphRoot: config.graphRoot,
+    ...resolveWarpPoolOptions(options.env ?? process.env),
+  });
   const processRunner = options.processRunner ?? nodeProcessRunner;
   const persistedLocalHistory = new PersistedLocalHistoryStore({
     fs: nodeFs,
@@ -399,14 +414,14 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     ctx,
   });
 
-  if (observability.enabled) {
-    void engine.emitRuntimeEvent({
+  const sessionStarted = observability.enabled
+    ? engine.emitRuntimeEvent({
       event: "session_started",
       sessionId: config.sessionId,
       logPath: observability.logPath,
       logPolicy: observability.logPolicy,
-    });
-  }
+    })
+    : Promise.resolve();
 
   return createGraftServerSurface({
     mcpServer,
@@ -414,5 +429,6 @@ export function createGraftServer(options: CreateGraftServerOptions = {}): Graft
     engine,
     ctx,
     registered,
+    sessionStarted,
   });
 }

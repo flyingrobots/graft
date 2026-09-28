@@ -896,6 +896,7 @@ const daemonStatusSchema = z.object({
   boundSessions: z.number().int().nonnegative(),
   unboundSessions: z.number().int().nonnegative(),
   activeWarpRepos: z.number().int().nonnegative(),
+  activeWarpResidents: z.number().int().nonnegative(),
   authorizedWorkspaces: z.number().int().nonnegative(),
   authorizedRepos: z.number().int().nonnegative(),
   workspaceBindRequiresAuthorization: z.literal(true),

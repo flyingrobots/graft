@@ -9,7 +9,7 @@ import type { RunCaptureConfig } from "../../src/mcp/run-capture-config.js";
 import type { RuntimeObservabilityState } from "../../src/mcp/runtime-observability.js";
 import { resolveWorkspaceRequest } from "../../src/mcp/workspace-router-resolution.js";
 import type { WorkspaceMode } from "../../src/mcp/workspace-router.js";
-import { InMemoryWarpPool } from "../../src/mcp/warp-pool.js";
+import { InMemoryWarpPool, warpPoolWorkspace } from "../../src/mcp/warp-pool.js";
 import type { GitClient } from "../../src/ports/git.js";
 import type { ProcessRunner } from "../../src/ports/process-runner.js";
 import { indexHead } from "../../src/warp/index-head.js";
@@ -104,13 +104,21 @@ export function createIndexableServerInRepo(
       if ("code" in workspace) {
         throw new Error(workspace.message);
       }
-      const app = await warpPool.getOrOpen(workspace, buildSessionWarpWriterId(sessionId));
-      await indexHead({
-        cwd: workspace.worktreeRoot,
-        git: gitClient,
-        pathOps: nodePathOps,
-        ctx: { app, strandId: null },
+      const lease = await warpPool.acquire({
+        workspace: warpPoolWorkspace(workspace),
+        writerId: buildSessionWarpWriterId(sessionId),
+        ownerId: `${sessionId}:test-index`,
       });
+      try {
+        await indexHead({
+          cwd: workspace.worktreeRoot,
+          git: gitClient,
+          pathOps: nodePathOps,
+          ctx: { app: lease.app, strandId: null },
+        });
+      } finally {
+        await lease.release();
+      }
     },
   };
 }
