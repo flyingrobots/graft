@@ -84,6 +84,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Tests never run a stale `dist/`**: a Vitest global setup rebuilds `dist/`
+  with the repository's own build before any test starts whenever it is
+  missing or any of its files is not newer than every file and directory under
+  `src/`, `tsconfig.json`, `tsconfig.build.json`, `package.json` and
+  `pnpm-lock.yaml`. Before this, the CLI integration test built only when
+  `dist/cli/entrypoint.js` was absent and the sidecar test never built, so an
+  old build could run in place of current source. A run after a source edit
+  now spends a few seconds rebuilding; a run with a current `dist/` only scans
+  file times. Compiler diagnostics that still emit output print a warning and
+  the run continues; `pnpm typecheck` stays the type gate.
+
 - **Refused automatic authorization**: when a routed daemon call cannot
   persist the default authorization for its workspace, Graft now discards that
   worktree's cached routed binding, as an unauthorized route already did. The
