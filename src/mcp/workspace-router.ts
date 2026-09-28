@@ -616,23 +616,15 @@ export class WorkspaceRouter {
       ? DEFAULT_REPO_LOCAL_CAPABILITY_PROFILE
       : (await this.options.authorizationPolicy?.getCapabilityProfile(resolved)) ?? null;
     if (capabilityProfile === null && this.options.mode === "daemon") {
-      capabilityProfile = (await this.options.authorizationPolicy?.ensureCapabilityProfile(resolved)) ?? null;
+      try {
+        capabilityProfile = (await this.options.authorizationPolicy?.ensureCapabilityProfile(resolved)) ?? null;
+      } catch (error) {
+        await this.discardRoutedBinding(resolved.worktreeId);
+        throw error;
+      }
     }
     if (capabilityProfile === null) {
-      const cached = this.routedBindings.get(resolved.worktreeId);
-      if (cached !== undefined) {
-        this.disposeRoutedBinding(cached);
-      }
-      const initializing = this.routedBindingInitializations.get(resolved.worktreeId);
-      if (initializing !== undefined) {
-        if (this.routedBindingInitializations.get(resolved.worktreeId) === initializing) {
-          this.routedBindingInitializations.delete(resolved.worktreeId);
-        }
-        const initialized = await initializing.catch(() => null);
-        if (initialized !== null && initialized !== cached) {
-          this.disposeRoutedBinding(initialized);
-        }
-      }
+      await this.discardRoutedBinding(resolved.worktreeId);
       throw new WorkspaceRouteUnauthorizedError(resolved.worktreeRoot);
     }
 
@@ -723,6 +715,24 @@ export class WorkspaceRouter {
         this.disposeRoutedBinding(evicted);
       } else {
         this.routedBindings.delete(oldestKey);
+      }
+    }
+  }
+
+  /** Drops cached and in-flight routed state for a worktree whose authorization was refused. */
+  private async discardRoutedBinding(worktreeId: string): Promise<void> {
+    const cached = this.routedBindings.get(worktreeId);
+    if (cached !== undefined) {
+      this.disposeRoutedBinding(cached);
+    }
+    const initializing = this.routedBindingInitializations.get(worktreeId);
+    if (initializing !== undefined) {
+      if (this.routedBindingInitializations.get(worktreeId) === initializing) {
+        this.routedBindingInitializations.delete(worktreeId);
+      }
+      const initialized = await initializing.catch(() => null);
+      if (initialized !== null && initialized !== cached) {
+        this.disposeRoutedBinding(initialized);
       }
     }
   }

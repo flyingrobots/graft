@@ -525,6 +525,58 @@ describe("mcp: daemon workspace binding", () => {
     expect(pool.size()).toBe(0);
   });
 
+  // Oracle: a refused authorization discards the cached routed binding, so the
+  // next admitted call starts a fresh workspace slice rather than reviving the
+  // refused one's governor and cache state.
+  it("discards a cached routed binding when automatic authorization fails", async () => {
+    const repoDir = createCommittedRepo();
+    const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-auto-open-refusal-"));
+    cleanups.push(() => {
+      fs.rmSync(graftDir, { recursive: true, force: true });
+    });
+    const pool = fakeSidecarWarpPool(({ writerId }) => {
+      return Promise.resolve({ writerId } as unknown as WarpApp);
+    }, { maxIdleResidents: 0, maxResidents: 64 });
+    const refusal = new Error("injected authorization persistence failure");
+    let authorized = true;
+    const router = new WorkspaceRouter({
+      mode: "daemon",
+      fs: nodeFs,
+      git: nodeGit,
+      graftDir,
+      warpPool: pool,
+      transportSessionId: "transport:test",
+      warpWriterId: "writer:test",
+      authorizationPolicy: {
+        getCapabilityProfile() {
+          return Promise.resolve(authorized ? DEFAULT_DAEMON_CAPABILITY_PROFILE : null);
+        },
+        ensureCapabilityProfile() {
+          return authorized ? Promise.resolve(DEFAULT_DAEMON_CAPABILITY_PROFILE) : Promise.reject(refusal);
+        },
+        noteBound(): Promise<void> {
+          return Promise.resolve();
+        },
+      },
+      persistedLocalHistory: new PersistedLocalHistoryStore({
+        fs: nodeFs,
+        codec: new CanonicalJsonCodec(),
+        graftDir,
+      }),
+    });
+
+    const first = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    await first.releaseWarpLease();
+
+    authorized = false;
+    await expect(router.captureExecutionContextForWorkspace({ cwd: repoDir })).rejects.toBe(refusal);
+
+    authorized = true;
+    const readmitted = await router.captureExecutionContextForWorkspace({ cwd: repoDir });
+    await readmitted.releaseWarpLease();
+    expect(readmitted.sliceId).not.toBe(first.sliceId);
+  });
+
   it("leaves no resident when routed repo-state initialization fails", async () => {
     const repoDir = createCommittedRepo();
     const graftDir = fs.mkdtempSync(path.join(os.tmpdir(), "graft-routed-init-failure-"));

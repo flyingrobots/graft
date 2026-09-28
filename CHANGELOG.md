@@ -51,6 +51,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Refused automatic authorization**: when a routed daemon call cannot
+  persist the default authorization for its workspace, Graft now discards that
+  worktree's cached routed binding, as an unauthorized route already did. The
+  next admitted call starts a fresh workspace slice instead of reviving the
+  refused one's governor and cache state.
+
 - **CLI index path aliases**: `graft index --path` canonicalizes an existing
   requested working directory before worktree containment checks, so symlink
   aliases no longer misclassify in-worktree paths as escapes.
