@@ -77,7 +77,7 @@ export async function startDaemonServer(options: StartDaemonServerOptions = {}):
   await ensureGitVersionSupportsGraft();
   const env = options.env ?? process.env;
   const graftDir = path.resolve(options.graftDir ?? defaultDaemonRoot(graftRootPath(env)));
-  const graphRoot = resolveWarpGraphRoot(options.graphRoot);
+  const graphRoot = resolveWarpGraphRoot(options.graphRoot, env);
   const socketPath = resolveSocketPath(options.socketPath, graftDir, undefined, { env });
   const startedAt = new Date().toISOString();
   const incarnationId = randomUUID();

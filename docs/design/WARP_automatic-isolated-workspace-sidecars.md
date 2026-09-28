@@ -88,10 +88,15 @@ git-warp receives plumbing rooted at a Graft-owned bare Git repository. It
 never receives the source worktree or source Git common directory as its
 persistence cwd in a production composition root.
 
-The default layout is:
+The default graph root is `<graft root>/graphs`, where the Graft root is
+`graftRootPath()` (`docs/design/CORE_graft-root-path.md`): `GRAFT_ROOT_PATH`
+when set, otherwise `~/.graft`. A host that injects an environment
+(`createGraftServer({ env })`, `startDaemonServer({ env })`) gets the default
+from that environment's `GRAFT_ROOT_PATH`, not the process's. Graft never reads
+`HOME` to find it. The default layout is:
 
 ```text
-~/.graft/
+<graft root>/                # ~/.graft while GRAFT_ROOT_PATH is unset
   graphs/
     <project-slug>--<repo-key>/
       <worktree-slug>--<worktree-key>/
@@ -297,10 +302,15 @@ Tests assert behavior and Git state, not this document's formatting.
 7. Run focused workspace-routing, daemon-session, WARP-open, pool, worker,
    monitor, CLI, output-schema, and architectural-boundary suites before the
    repository minimum gates.
-8. Exercise the test-runner model to prove all Vitest package scripts select
+8. Resolve the default graph root from an injected `GRAFT_ROOT_PATH` with
+   `os.homedir` spied, requiring no home read, and prove a daemon given an
+   `env` opens its sidecars under that environment's Graft root. The test
+   suite points `GRAFT_ROOT_PATH` at a private temporary directory and leaves
+   `HOME` alone.
+9. Exercise the test-runner model to prove all Vitest package scripts select
    Docker, the run command has no volume flags, and the environment variable
    formerly used for host bypass no longer changes execution.
-9. Build the test target from a copied context with an exact base image and Git
+10. Build the test target from a copied context with an exact base image and Git
    package, inspect the post-copy scrub witness, prove post-copy build steps
    have no network, then run focused and full validation only through unique,
    ephemeral, network-disabled containers with no mounts.

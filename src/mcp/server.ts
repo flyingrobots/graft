@@ -129,7 +129,7 @@ function resolveGraftServerConfig(
     env,
     projectRoot,
     graftDir,
-    graphRoot: resolveWarpGraphRoot(options.graphRoot),
+    graphRoot: resolveWarpGraphRoot(options.graphRoot, env),
     sessionWarpWriterId,
   };
 }

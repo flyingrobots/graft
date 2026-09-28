@@ -152,7 +152,8 @@ opening always uses the default profile and does not activate the worktree.
 
 WARP graph persistence is separate from the source repository. Graft creates
 private bare sidecars under
-`~/.graft/graphs/<project>/<worktree>/<actor>/warp.git`, with deterministic
+`<graft root>/graphs/<project>/<worktree>/<actor>/warp.git` (the Graft root is
+`GRAFT_ROOT_PATH`, or `~/.graft` while it is unset), with deterministic
 identity suffixes on the readable path components. Repository, worktree, and
 actor identity all participate in the key, so linked worktrees and independent
 sessions cannot receive the same working graph.

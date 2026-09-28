@@ -372,6 +372,41 @@ describe("mcp: daemon transport and lifecycle", () => {
     }
   });
 
+  it("keeps its default WARP graph root under the injected environment's GRAFT_ROOT_PATH, not the process's", {
+    timeout: 15_000,
+  }, async () => {
+    // Oracle: the documented layout, <graft root>/graphs. The ambient
+    // GRAFT_ROOT_PATH is the test setup's root, so a daemon that resolved its
+    // graph root from process.env would open the sidecar there instead.
+    const repoDir = createTestRepo("graft-daemon-env-graph-root-");
+    repos.push(repoDir);
+    fs.writeFileSync(path.join(repoDir, "app.ts"), "export const ready = true;\n");
+    git(repoDir, "add -A");
+    git(repoDir, "commit -m init");
+    const rootDir = fs.realpathSync.native(fs.mkdtempSync(path.join(os.tmpdir(), "graft-daemon-root-")));
+    roots.push(rootDir);
+    const ambientGraphRoot = path.join(process.env["GRAFT_ROOT_PATH"]!, "graphs");
+    const socketPath = path.join(rootDir, "daemon.sock");
+    const daemon = await startTestDaemonServer({
+      graftDir: path.join(rootDir, "daemon"),
+      socketPath,
+      persistedLocalHistoryGraph: true,
+      env: { ...process.env, GRAFT_ROOT_PATH: rootDir },
+    });
+    daemons.push(daemon);
+
+    const sessionId = await initializeSession(socketPath);
+    expect((await callTool<{ ok: boolean }>(socketPath, sessionId, "workspace_authorize", { cwd: repoDir }, 10)).ok).toBe(true);
+    expect((await callTool<{ ok: boolean }>(socketPath, sessionId, "workspace_bind", { cwd: repoDir }, 11)).ok).toBe(true);
+
+    const writerId = buildSessionWarpWriterId(sessionId);
+    await expect(sidecarWriterRefs(path.join(rootDir, "graphs"), repoDir, writerId))
+      .resolves.toEqual([`refs/warp/graft-ast/writers/${writerId}`]);
+    const resolved = await resolveWorkspaceRequest(nodeGit, { cwd: repoDir });
+    if ("code" in resolved) throw new Error(resolved.message);
+    expect(fs.existsSync(resolveWarpSidecarLocation(ambientGraphRoot, { ...resolved, writerId }).repoPath)).toBe(false);
+  });
+
   it("rejects an initialize request that finishes after shutdown stops session admission", {
     timeout: 15_000,
   }, async () => {

@@ -1,10 +1,10 @@
 import * as crypto from "node:crypto";
 import * as fsSync from "node:fs";
 import * as fs from "node:fs/promises";
-import * as os from "node:os";
 import * as path from "node:path";
 import type WarpApp from "@git-stunts/git-warp";
 import GitPlumbing from "@git-stunts/plumbing";
+import { graftRootPath } from "../adapters/graft-root.js";
 import { openWarp } from "./open.js";
 
 const PRIVATE_DIRECTORY_MODE = 0o700;
@@ -270,13 +270,22 @@ async function ensureBareRepository(graphRoot: string, repoPath: string): Promis
   }
 }
 
-export function defaultWarpGraphRoot(homeDirectory = os.homedir()): string {
-  return path.join(homeDirectory, ".graft", "graphs");
+/** The default WARP graph root: `<graft root>/graphs`, `~/.graft/graphs` while GRAFT_ROOT_PATH is unset. */
+export function defaultWarpGraphRoot(graftRoot: string = graftRootPath()): string {
+  return path.join(graftRoot, "graphs");
 }
 
-export function resolveWarpGraphRoot(configuredRoot?: string): string {
+/**
+ * The configured graph root, or the default under the Graft root that `env`
+ * names. Hosts that inject an environment pass it, so the default follows
+ * their GRAFT_ROOT_PATH rather than the process's.
+ */
+export function resolveWarpGraphRoot(
+  configuredRoot?: string,
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): string {
   return resolveRequiredStoragePath(
-    configuredRoot ?? defaultWarpGraphRoot(),
+    configuredRoot ?? defaultWarpGraphRoot(graftRootPath(env)),
     "graph root",
   );
 }

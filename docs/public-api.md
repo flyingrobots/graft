@@ -219,7 +219,9 @@ either.
 
 `CreateGraftServerOptions` and `StartDaemonServerOptions` accept an optional
 `graphRoot`. It selects the parent directory for Graft-owned WARP sidecars and
-defaults to `~/.graft/graphs`. This is an advanced storage-location override,
+defaults to `<graft root>/graphs`: `GRAFT_ROOT_PATH/graphs`, or
+`~/.graft/graphs` while that is unset. When the options also carry an `env`,
+that environment's `GRAFT_ROOT_PATH` decides the default. This is an advanced storage-location override,
 not permission to place WARP state in a source repository. The effective root
 must be non-empty, must not resolve through a symlink alias, and must be
 disjoint from both the source worktree and its common Git directory. Sidecar
