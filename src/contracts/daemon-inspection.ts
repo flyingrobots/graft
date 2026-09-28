@@ -85,7 +85,8 @@ export const inspectionJobSchema = z.object({
 const jobRow = inspectionJobSchema.extend({
   originatingSession: z.enum(["registered", "not_registered", "not_applicable", "unavailable"]),
   waitReason: z.literal("not_exposed"), workerCorrelation: z.literal("not_retained"),
-});
+}).refine(value => (value.startedAt === null) === (value.state === "queued"),
+  "A queued job has no start time and a running job has one");
 export type InspectionJobRow = z.infer<typeof jobRow>;
 export const inspectionWorkerSchema = z.object({
   workerId: identity, pid: count.nullable(), requestId: identity.nullable(),

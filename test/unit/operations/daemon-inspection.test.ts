@@ -191,4 +191,18 @@ describe("bounded daemon observation", () => {
     unretainedClient.sessions.rows[0]!.reportedClientAvailability = "not_retained";
     expect(inspectionObservationSchema.safeParse(unretainedClient).success).toBe(false);
   });
+
+  it("rejects a job whose start timestamp contradicts its lifecycle state", () => {
+    const { state, query } = fixture();
+    state.jobs = [job("running"), { ...job("queued"), state: "queued", startedAt: null }];
+    const consistent = query.capture({});
+    expect(consistent.jobs.rows.map(row => [row.state, row.startedAt])).toEqual([["running", startedAt], ["queued", null]]);
+    expect(inspectionObservationSchema.safeParse(consistent).success).toBe(true);
+    const startedQueued = structuredClone(consistent);
+    startedQueued.jobs.rows[1]!.startedAt = startedAt;
+    expect(inspectionObservationSchema.safeParse(startedQueued).success).toBe(false);
+    const unstartedRunning = structuredClone(consistent);
+    unstartedRunning.jobs.rows[0]!.startedAt = null;
+    expect(inspectionObservationSchema.safeParse(unstartedRunning).success).toBe(false);
+  });
 });

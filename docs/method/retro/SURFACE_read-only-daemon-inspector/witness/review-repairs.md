@@ -92,3 +92,15 @@ The collection validator accepted `truncated` with a known `matchingTotal` no
 greater than `returned`. A refine now rejects it (`1cc92489`). The producer
 never emits this state; the validator is the public contract for older or
 faulty daemons.
+
+## Third review round
+
+### Job start time contradicting its state — P2 (review thread)
+
+The job row schema accepted a `queued` job with a non-null `startedAt` and a
+`running` job with `startedAt: null`. The producer never emits either: `enqueue`
+creates every job with `startedAt: null`, and `startJob` sets it before putting
+the job in the running map; `queued` and `running` are the only states. A refine
+on the job row now requires `startedAt` to be null exactly when the state is
+`queued`. Before the refine, the regression test failed on its first
+contradiction: a queued job with a start time parsed successfully.

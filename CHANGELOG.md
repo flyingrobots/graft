@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   whose `reportedClient` payload contradicts `reportedClientAvailability`
   (`null` with `available`, or a client object with `not_retained`), and a
   `truncated` collection whose known `matchingTotal` does not exceed `returned`.
+  It also rejects a job whose `startedAt` contradicts its `state`: a `queued`
+  job with a start time, or a `running` job without one.
 
 ### Documentation
 
