@@ -5,7 +5,7 @@ import {
   type WorkspaceBindRequest,
 } from "./workspace-router.js";
 import { buildMonitorWarpWriterId } from "../warp/writer-id.js";
-import { resolveWarpSidecarLocation } from "../warp/sidecar.js";
+import { resolveWarpGraphRoot, resolveWarpSidecarLocation } from "../warp/sidecar.js";
 
 import {
   CONTROL_PLANE_DIR,
@@ -81,7 +81,11 @@ export class PersistentMonitorRuntime {
   private loadPromise: Promise<void> | null = null;
   private closing = false;
 
-  constructor(private readonly options: PersistentMonitorRuntimeOptions) {
+  private readonly options: PersistentMonitorRuntimeOptions;
+
+  constructor(options: PersistentMonitorRuntimeOptions) {
+    // Resolve the graph root once, here, to its real path; later steps require it real.
+    this.options = { ...options, graphRoot: resolveWarpGraphRoot(options.graphRoot) };
     this.statePath = path.join(
       path.resolve(options.graftDir),
       CONTROL_PLANE_DIR,

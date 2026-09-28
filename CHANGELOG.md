@@ -20,8 +20,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `graphRoot` field. The default is `<graft root>/graphs`, derived from
   `GRAFT_ROOT_PATH` (from the options' `env` when one is passed) and so still
   `~/.graft/graphs` while that is unset; Graft does not read `HOME` for it.
-  Blank, symlink-aliased, and source-overlapping roots fail before storage
-  mutation.
+  A root reached through a symlink is resolved to its real path where it is
+  first read (server, daemon, pool, monitor runtime, CLI); later steps refuse a
+  root that is not already real, and a symlink anywhere inside storage. Blank
+  and source-overlapping roots fail before storage mutation.
 - **`GRAFT_ROOT_PATH`**: Graft's per-user root, `~/.graft` by default, can be set
   to any absolute path. The daemon's default root and its Windows pipe name
   derive from it (from the `env` passed to `startDaemonServer`, when one is),

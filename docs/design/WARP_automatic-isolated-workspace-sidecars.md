@@ -153,8 +153,9 @@ never reconstruct storage authority by walking upward from a terminal path.
 
 Sidecar initialization must:
 
-- reject a blank graph root, any graph root reached through a symlink alias,
-  and any root that contains or is contained by the source worktree or common
+- resolve a graph root reached through a symlink alias to its real path where
+  the root is first read, then refuse a root that is not already real;
+- reject a blank graph root, and any root that contains or is contained by the source worktree or common
   Git directory before touching storage;
 - create absent Graft-owned directories with private permissions, refuse an
   unsafe pre-existing directory, and never repair one by changing its mode;
@@ -246,8 +247,10 @@ handoff or actor evidence exists.
   the git-warp persistence adapter?
 - [x] Does a malformed or non-bare sidecar fail without falling back to the
   source repository?
-- [x] Do blank, symlink-aliased, and source-overlapping graph roots fail before
-  any storage path is created or permission mode changed?
+- [x] Do blank and source-overlapping graph roots fail before any storage path
+  is created or permission mode changed?
+- [x] Does a graph root reached through a symlink alias resolve to its real path,
+  while a root swapped for a symlink after resolution is refused?
 
 ## Acceptance Criteria
 

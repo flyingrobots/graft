@@ -277,17 +277,23 @@ export function defaultWarpGraphRoot(graftRoot: string = graftRootPath()): strin
 
 /**
  * The configured graph root, or the default under the Graft root that `env`
- * names. Hosts that inject an environment pass it, so the default follows
- * their GRAFT_ROOT_PATH rather than the process's.
+ * names, resolved to its real path. Hosts that inject an environment pass it,
+ * so the default follows their GRAFT_ROOT_PATH rather than the process's.
+ *
+ * Call this once, where the root is first read. A root reached through a
+ * symlink (macOS `/tmp` and `/var`, say) becomes the directory it names, and
+ * every later step works on that real path: the location resolver and the
+ * sidecar opener refuse a root that is not already real, so a root swapped for
+ * a symlink after startup is refused rather than followed.
  */
 export function resolveWarpGraphRoot(
   configuredRoot?: string,
   env: Readonly<Record<string, string | undefined>> = process.env,
 ): string {
-  return resolveRequiredStoragePath(
+  return canonicalizeProspectivePath(resolveRequiredStoragePath(
     configuredRoot ?? defaultWarpGraphRoot(graftRootPath(env)),
     "graph root",
-  );
+  ));
 }
 
 function sidecarGitEnvironment(): Record<string, string> {
@@ -317,7 +323,8 @@ export function resolveWarpSidecarLocation(
   graphRoot: string,
   identity: WarpSidecarIdentity,
 ): WarpSidecarLocation {
-  const resolvedRoot = resolveWarpGraphRoot(graphRoot);
+  // Strict on purpose: the root must already be real (see resolveWarpGraphRoot).
+  const resolvedRoot = resolveRequiredStoragePath(graphRoot, "graph root");
   assertGraphStorageDisjoint(resolvedRoot, identity);
   const projectDir = path.join(
     resolvedRoot,

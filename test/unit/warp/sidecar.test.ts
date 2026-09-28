@@ -7,6 +7,7 @@ import * as path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   openWarpSidecar,
+  resolveWarpGraphRoot,
   resolveWarpSidecarLocation,
   type WarpSidecarIdentity,
   type WarpSidecarOpenOptions,
@@ -195,17 +196,69 @@ describe("warp: isolated sidecar persistence", { timeout: 20_000 }, () => {
     )).toThrow(/overlaps source worktree/u);
   });
 
-  it("rejects a graph root reached through a symlink alias", () => {
+  it("resolves a graph root reached through a symlink alias to its real path", () => {
     const source = sourceRepo();
     const graphTarget = tempDir("graft-sidecar-graph-target-");
     const aliasParent = tempDir("graft-sidecar-graph-alias-");
     const graphAlias = path.join(aliasParent, "graphs");
+    fs.symlinkSync(graphTarget, graphAlias, "dir");
+    const id = identity(source, "graft_session_graph_alias");
+
+    expect(resolveWarpGraphRoot(graphAlias)).toBe(fs.realpathSync.native(graphTarget));
+    // Both spellings of one root name the same sidecar.
+    expect(resolveWarpSidecarLocation(resolveWarpGraphRoot(graphAlias), id))
+      .toEqual(resolveWarpSidecarLocation(resolveWarpGraphRoot(graphTarget), id));
+  });
+
+  it("resolves a graph root that does not exist yet beneath a symlinked parent", () => {
+    const realParent = tempDir("graft-sidecar-graph-parent-");
+    const aliasParent = path.join(tempDir("graft-sidecar-graph-parent-alias-"), "parent");
+    fs.symlinkSync(realParent, aliasParent, "dir");
+
+    expect(resolveWarpGraphRoot(path.join(aliasParent, "graft", "graphs")))
+      .toBe(path.join(fs.realpathSync.native(realParent), "graft", "graphs"));
+  });
+
+  it("still refuses an unresolved symlink alias handed straight to the location resolver", () => {
+    const source = sourceRepo();
+    const graphTarget = tempDir("graft-sidecar-graph-target-");
+    const graphAlias = path.join(tempDir("graft-sidecar-graph-alias-"), "graphs");
     fs.symlinkSync(graphTarget, graphAlias, "dir");
 
     expect(() => resolveWarpSidecarLocation(
       graphAlias,
       identity(source, "graft_session_graph_alias"),
     )).toThrow(/symlinked Graft graph storage path/u);
+  });
+
+  it("opens a sidecar through a symlinked graph root and stores it under the real path", async () => {
+    const source = sourceRepo();
+    const graphTarget = tempDir("graft-sidecar-graph-target-");
+    const graphAlias = path.join(tempDir("graft-sidecar-graph-alias-"), "graphs");
+    fs.symlinkSync(graphTarget, graphAlias, "dir");
+    const graphRoot = resolveWarpGraphRoot(graphAlias);
+    const location = resolveWarpSidecarLocation(graphRoot, identity(source, "graft_session_a"));
+
+    await openWarpSidecar({ graphRoot, sidecarRepo: location.repoPath, writerId: "graft_session_a" });
+
+    expect(location.repoPath.startsWith(fs.realpathSync.native(graphTarget) + path.sep)).toBe(true);
+    expect(fs.existsSync(path.join(location.repoPath, "HEAD"))).toBe(true);
+  });
+
+  it("refuses a graph root swapped for a symlink after it was resolved", async () => {
+    const source = sourceRepo();
+    const graphRoot = resolveWarpGraphRoot(tempDir("graft-sidecar-swapped-root-"));
+    const outside = tempDir("graft-sidecar-swapped-target-");
+    const location = resolveWarpSidecarLocation(graphRoot, identity(source, "graft_session_a"));
+    fs.renameSync(graphRoot, `${graphRoot}-parked`);
+    fs.symlinkSync(outside, graphRoot, "dir");
+
+    await expect(openWarpSidecar({
+      graphRoot,
+      sidecarRepo: location.repoPath,
+      writerId: "graft_session_a",
+    })).rejects.toThrow(/symlinked Graft graph storage directory/u);
+    expect(fs.readdirSync(outside)).toEqual([]);
   });
 
   it("keys readable contained locations by repo, worktree, and actor without exposing the raw token", () => {

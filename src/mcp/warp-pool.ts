@@ -2,6 +2,7 @@ import type WarpApp from "@git-stunts/git-warp";
 import { DEFAULT_WARP_WRITER_ID } from "../warp/writer-id.js";
 import {
   openWarpSidecar,
+  resolveWarpGraphRoot,
   resolveWarpSidecarLocation,
   type WarpSidecarLocation,
   type WarpSidecarOpenOptions,
@@ -91,7 +92,8 @@ export class InMemoryWarpPool implements WarpResidentPool {
   private readonly maxIdleResidents: number;
 
   constructor(options: InMemoryWarpPoolOptions) {
-    this.graphRoot = options.graphRoot;
+    // A pool is where a library host hands Graft a root: resolve it once to its real path.
+    this.graphRoot = resolveWarpGraphRoot(options.graphRoot);
     this.openSidecar = options.openSidecar ?? openWarpSidecar;
     this.maxResidents = options.maxResidents ?? DEFAULT_MAX_WARP_RESIDENTS;
     validateCapacity(this.maxResidents);
