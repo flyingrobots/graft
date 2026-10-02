@@ -27,19 +27,28 @@ annotation is analyzed like any other function, not fatal to the scan.
   involved; the failure is in the detector's own tree walk.
 - Stack against branch source ends in `normalizedTypeName`
   (`src/operations/sludge-detector.ts:133`), called from `firstParameterType`.
-- `web-tree-sitter` 0.20.8 types `childForFieldName()` as `SyntaxNode | null`
-  but returns `undefined` for an absent field.
+- `web-tree-sitter` 0.20.8 types `childForFieldName()` as `SyntaxNode | null`.
+  RED showed the runtime split: a node whose grammar defines the field but
+  leaves it empty returns `null`; a node whose type has no such field at all
+  returns `undefined`. A JavaScript parameter is a bare `identifier`, which
+  has no `type` field, so `firstParameter.childForFieldName("type")` is
+  `undefined`. An untyped TypeScript `required_parameter` has the field and
+  returns `null`, which is why graft's own TypeScript scans cleanly.
 
 Three detector sites compare a `childForFieldName()` result to `null`
 directly:
 
-1. `normalizedTypeName` — a parameter with no `type` field (the observed crash).
-2. `declarationFunctionFacts` — a declarator with no `value`, e.g. `let x;`,
-   then reads `value.type`.
-3. `isPlainObjectExpression` — receives the `body` field result. Functions the
-   detector visits always carry a body, so this site is not known to be
-   reachable with `undefined`; it is normalized for consistency, not because a
-   crash was observed.
+1. `normalizedTypeName` — receives the `type` field of whatever node is the
+   first parameter. Reachable with `undefined` for JavaScript (the observed
+   crash).
+2. `declarationFunctionFacts` — a `variable_declarator` with no `value`, e.g.
+   `let x;`. The declarator grammar defines `value`, so this returns `null`
+   and is handled today.
+3. `isPlainObjectExpression` — receives a function's `body` field, which
+   function grammars define. Handled today.
+
+Sites 2 and 3 are normalized for consistency, not because a crash was
+observed there.
 
 ## Playback Questions
 
@@ -86,8 +95,12 @@ RED: add unit cases to `test/unit/operations/sludge-detector.test.ts` that
 feed real parser-backed sources — an untyped JavaScript function, an untyped
 TypeScript function, and a bare `let x;` — through `analyzeSludgeFile`, plus a
 `detectSludge` case that includes the JavaScript file. They assert returned
-reports, scanned counts, and signal kinds, not error strings. Each case must
-fail on current `main` with the observed TypeError.
+reports, scanned counts, and signal kinds, not error strings.
+
+RED result on `main`: the JavaScript `analyzeSludgeFile` case and the
+`detectSludge` case fail with the observed TypeError. The untyped TypeScript
+and bare `let x;` cases pass on `main`; they stay as guards for acceptance
+criteria 2 and 3, not as reproductions.
 
 GREEN: normalize the absent-field result once in the detector and use it at
 the three sites.

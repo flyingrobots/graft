@@ -43,6 +43,29 @@ export function createUser(): User {
 }
 `;
 
+const UNTYPED_JS_SOURCE = `
+function shuffle(arr) {
+  return [...arr];
+}
+
+export function buildPair(left, right) {
+  return { left, right };
+}
+`;
+
+const UNTYPED_TS_SOURCE = `
+interface Pair { left: string }
+
+export function describePair(pair, label: string): string {
+  return label;
+}
+`;
+
+const UNINITIALIZED_SOURCE = `
+let pending;
+export const ready = (value: string): string => value;
+`;
+
 function fakeFs(files: Readonly<Record<string, string>>): FileSystem {
   return {
     readFile(path: string): Promise<string> {
@@ -109,6 +132,46 @@ describe("operations: sludge-detector", () => {
     expect(report).not.toBeNull();
     expect(report!.signals).toEqual([]);
     expect(report!.metrics.classCount).toBe(1);
+  });
+
+  it("analyzes JavaScript functions whose parameters carry no type annotation", () => {
+    const report = analyzeSludgeFile("scripts/untyped.js", UNTYPED_JS_SOURCE);
+
+    expect(report).not.toBeNull();
+    expect(report!.metrics.functionCount).toBe(2);
+    expect(report!.signals).toEqual([
+      expect.objectContaining({ kind: "homeless_constructor", symbol: "buildPair" }),
+    ]);
+  });
+
+  it("treats an untyped TypeScript first parameter as carrying no project type", () => {
+    const report = analyzeSludgeFile("src/untyped.ts", UNTYPED_TS_SOURCE);
+
+    expect(report).not.toBeNull();
+    expect(report!.metrics.freeFunctionDataBehaviorCount).toBe(0);
+    expect(report!.signals).toEqual([]);
+  });
+
+  it("analyzes a top-level declarator that has no initializer", () => {
+    const report = analyzeSludgeFile("src/pending.ts", UNINITIALIZED_SOURCE);
+
+    expect(report).not.toBeNull();
+    expect(report!.signals).toEqual([]);
+  });
+
+  it("finishes a scan that includes a file with untyped parameters", async () => {
+    const result = await detectSludge({
+      cwd: "/repo",
+      fs: fakeFs({
+        "/repo/src/sloppy.ts": SLOPPY_SOURCE,
+        "/repo/scripts/untyped.js": UNTYPED_JS_SOURCE,
+      }),
+      git: fakeGit(["src/sloppy.ts", "scripts/untyped.js"]),
+      resolvePath: (filePath) => `/repo/${filePath}`,
+    });
+
+    expect(result.scannedFiles).toBe(2);
+    expect(result.files.map((file) => file.path)).toEqual(["src/sloppy.ts", "scripts/untyped.js"]);
   });
 
   it("scans tracked supported source files and omits unsupported files", async () => {

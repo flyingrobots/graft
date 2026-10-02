@@ -31,9 +31,10 @@ TypeError: Cannot read properties of undefined (reading 'text')
 ```
 
 `web-tree-sitter` 0.20.8 declares `childForFieldName()` as
-`SyntaxNode | null` but returns `undefined` for an absent field. The detector
-guards with `=== null`, so a parameter with no type annotation — every plain
-JavaScript parameter — reaches `.text` on `undefined`.
+`SyntaxNode | null`, but returns `undefined` when the node's type has no such
+field at all. A plain JavaScript parameter is a bare `identifier`, which has no
+`type` field. The detector guards with `=== null`, so every untyped JavaScript
+first parameter reaches `.text` on `undefined`.
 
 ## Risk
 
