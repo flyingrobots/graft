@@ -68,6 +68,22 @@ for it.
 The full suite was not run: the change is confined to one detector module
 and its unit file.
 
+### Calibration (TESTING_STANDARDS checklist 1 and 12)
+
+Two cases were observed red on unfixed `main`. The two guards passed on
+`main`, so each new case was also run against a deliberate mutation of the
+fixed detector, then the file was restored:
+
+| Mutation | Cases that failed |
+| :--- | :--- |
+| `fieldChild` returns the raw lookup (the original bug) | JavaScript analyze; `detectSludge` scan |
+| an untyped first parameter is reported as project type `Pair` | untyped TypeScript first parameter |
+| the absent-initializer guard is dropped | declarator with no initializer |
+
+Each mutation was caught only by the case meant to catch it. All cases are
+small, in-process, and parser-backed, with no clock, randomness, filesystem,
+or network input (`detectSludge` runs against in-memory fakes).
+
 ## Follow-up
 
 - Filed `docs/method/backlog/bad-code/CLEAN_sludge-scan-aborts-on-one-file.md`:
