@@ -74,6 +74,16 @@ function walk(node: SyntaxNode, visit: (node: SyntaxNode) => void): void {
   }
 }
 
+/**
+ * Field lookup with one absent value. web-tree-sitter returns `null` for a
+ * field the node's grammar defines but leaves empty, and `undefined` for a
+ * field its type does not define at all (a JavaScript `identifier` parameter
+ * has no `type`), despite declaring `SyntaxNode | null`.
+ */
+function fieldChild(node: SyntaxNode, field: string): SyntaxNode | null {
+  return node.childForFieldName(field) ?? null;
+}
+
 function countOutlineEntries(
   entries: readonly OutlineEntry[],
   predicate: (entry: OutlineEntry) => boolean,
@@ -116,7 +126,7 @@ function isPlainObjectExpression(node: SyntaxNode | null): boolean {
 }
 
 function returnsPlainObject(node: SyntaxNode): boolean {
-  const body = node.childForFieldName("body");
+  const body = fieldChild(node, "body");
   if (isPlainObjectExpression(body)) return true;
 
   let found = false;
@@ -150,7 +160,7 @@ function firstParameterType(functionNode: SyntaxNode): string | null {
   const parameters = functionNode.childForFieldName("parameters");
   const firstParameter = parameters?.namedChildren[0];
   if (firstParameter === undefined) return null;
-  return normalizedTypeName(firstParameter.childForFieldName("type"));
+  return normalizedTypeName(fieldChild(firstParameter, "type"));
 }
 
 function functionFact(name: string, node: SyntaxNode): FunctionFact {
@@ -174,7 +184,7 @@ function declarationFunctionFacts(node: SyntaxNode): FunctionFact[] {
   for (const declarator of node.namedChildren) {
     if (declarator.type !== "variable_declarator") continue;
     const name = declarator.childForFieldName("name")?.text;
-    const value = declarator.childForFieldName("value");
+    const value = fieldChild(declarator, "value");
     if (name === undefined || value === null) continue;
     if (value.type === "arrow_function" || value.type === "function") {
       facts.push(functionFact(name, value));
