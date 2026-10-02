@@ -6,9 +6,10 @@ legend: CLEAN
 lane: bad-code
 priority: 2
 effort: S
-status: active
+status: completed
 reported: 2026-10-02
 design: "docs/design/CLEAN_sludge-untyped-parameter-crash.md"
+retro: "docs/method/retro/CLEAN_sludge-untyped-parameter-crash/retro.md"
 ---
 
 # Sludge scan crashes on an untyped first parameter
