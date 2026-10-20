@@ -374,6 +374,47 @@ function runTextFallbackSearch(
   throw new Error(`reference search failed: ripgrep unavailable (${rgMessage}); grep unavailable (${grepMessage})`);
 }
 
+/** Reason recorded for a matched file that could not be loaded. */
+const UNREADABLE_REASON = "UNREADABLE";
+
+interface SkippedReasonSummary {
+  readonly reason: string;
+  readonly files: number;
+  readonly matches: number;
+}
+
+interface SkippedSummary {
+  readonly files: number;
+  readonly matches: number;
+  readonly reasons: readonly SkippedReasonSummary[];
+}
+
+/** Counts matches dropped from an answer, by the reason their file was skipped. */
+class SkippedMatchTally {
+  private readonly byReason = new Map<string, { files: Set<string>; matches: number }>();
+
+  add(filePath: string, reason: string): void {
+    let entry = this.byReason.get(reason);
+    if (entry === undefined) {
+      entry = { files: new Set<string>(), matches: 0 };
+      this.byReason.set(reason, entry);
+    }
+    entry.files.add(filePath);
+    entry.matches += 1;
+  }
+
+  summary(): SkippedSummary {
+    const reasons = [...this.byReason.entries()]
+      .map(([reason, entry]) => ({ reason, files: entry.files.size, matches: entry.matches }))
+      .sort((left, right) => (left.reason < right.reason ? -1 : left.reason > right.reason ? 1 : 0));
+    return {
+      files: reasons.reduce((sum, entry) => sum + entry.files, 0),
+      matches: reasons.reduce((sum, entry) => sum + entry.matches, 0),
+      reasons,
+    };
+  }
+}
+
 export const codeRefsTool: ToolDefinition = {
   name: "code_refs",
   description:
@@ -396,7 +437,9 @@ export const codeRefsTool: ToolDefinition = {
       const fallback = runTextFallbackSearch(ctx.projectRoot, pattern, filePaths, ctx.process);
 
       const visibleMatches: CodeRefsMatch[] = [];
+      const skipped = new SkippedMatchTally();
       const fileCache = new Map<string, string>();
+      const refusedFiles = new Map<string, string>();
       let firstRefusal:
         | {
           path: string;
@@ -408,10 +451,20 @@ export const codeRefsTool: ToolDefinition = {
         | undefined;
 
       for (const match of fallback.matches) {
+        const knownRefusal = refusedFiles.get(match.path);
+        if (knownRefusal !== undefined) {
+          skipped.add(match.path, knownRefusal);
+          continue;
+        }
+
         let content = fileCache.get(match.path);
         if (content === undefined) {
           const loaded = await loadFileContent(ctx, match.path);
-          if (loaded === null) continue;
+          if (loaded === null) {
+            refusedFiles.set(match.path, UNREADABLE_REASON);
+            skipped.add(match.path, UNREADABLE_REASON);
+            continue;
+          }
           fileCache.set(match.path, loaded);
           content = loaded;
         }
@@ -419,6 +472,8 @@ export const codeRefsTool: ToolDefinition = {
         const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
         if (refusal !== null) {
           firstRefusal ??= refusal;
+          refusedFiles.set(match.path, refusal.reason);
+          skipped.add(match.path, refusal.reason);
           continue;
         }
 
@@ -436,6 +491,7 @@ export const codeRefsTool: ToolDefinition = {
           reasonDetail: firstRefusal.reasonDetail,
           next: [...firstRefusal.next],
           actual: firstRefusal.actual,
+          skipped: skipped.summary(),
           source: "text_fallback",
           provenance: {
             engine: fallback.engine,
@@ -457,6 +513,7 @@ export const codeRefsTool: ToolDefinition = {
         scope: request.scope(),
         matches: visibleMatches,
         total: visibleMatches.length,
+        skipped: skipped.summary(),
         source: "text_fallback",
         provenance: {
           engine: fallback.engine,

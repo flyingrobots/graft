@@ -91,8 +91,9 @@ withholds; the all-refused refusal already names its first path, unchanged.
 
 RED: four cases in `test/unit/mcp/code-refs.test.ts` call the real tool
 through an in-repo server. The unreadable case wraps the real process runner
-and adds one ripgrep match line for a path that does not exist, which is how a
-file removed between search and load presents. All four fail on `main`
+and adds one match line, in the format of whichever engine answers (the test
+image has no ripgrep, so grep answers there), for a path that does not exist.
+That is how a file removed between search and load presents. All four fail on `main`
 because the response has no `skipped` field.
 
 GREEN: tally skipped files and matches by reason in the handler and add the

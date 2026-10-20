@@ -477,6 +477,16 @@ const codeRefsProvenanceSchema = z.object({
   filesSearched: z.number().int().nonnegative(),
 }).strict();
 
+const codeRefsSkippedSchema = z.object({
+  files: z.number().int().nonnegative(),
+  matches: z.number().int().nonnegative(),
+  reasons: z.array(z.object({
+    reason: z.string(),
+    files: z.number().int().positive(),
+    matches: z.number().int().positive(),
+  }).strict()),
+}).strict();
+
 const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -1090,6 +1100,7 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
     reasonDetail: z.string().optional(),
     next: z.array(z.string()).optional(),
     actual: actualSchema.optional(),
+    skipped: codeRefsSkippedSchema,
     source: z.literal("text_fallback"),
     provenance: codeRefsProvenanceSchema,
     layer: worldlineLayerSchema,

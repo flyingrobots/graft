@@ -359,6 +359,16 @@ export const codeRefsProvenanceSchema = z.object({
   filesSearched: z.number().int().nonnegative(),
 }).strict();
 
+export const codeRefsSkippedSchema = z.object({
+  files: z.number().int().nonnegative(),
+  matches: z.number().int().nonnegative(),
+  reasons: z.array(z.object({
+    reason: z.string(),
+    files: z.number().int().positive(),
+    matches: z.number().int().positive(),
+  }).strict()),
+}).strict();
+
 export const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -898,6 +908,7 @@ export const mcpFragmentSchemas = {
   precisionSymbolMatchSchema,
   codeRefsMatchSchema,
   codeRefsProvenanceSchema,
+  codeRefsSkippedSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
   activityViewSchema,
