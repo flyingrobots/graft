@@ -49,6 +49,14 @@ content that differs from what the cache recorded.
   `sha256-utf16le:<hex>`. The labels keep the two domains disjoint, so
   distinct strings never share an identity through the encoding.
 
+Application modules may not import host libraries such as `node:crypto`
+(the hexagonal boundary rule in `eslint.config.js`). `src/contracts/review-digest.ts`
+already carried a pure SHA-256 for that reason. It moves to
+`src/contracts/sha256.ts` as `sha256Hex(bytes)`, and both the review digest
+and `hashContent` use it. Its output is checked against `node:crypto` in the
+tests. It hashes 4 MiB in about 70 ms on an M-series laptop, well under the
+cost of parsing the same file.
+
 An identity recorded before this change is an 8-digit hex string. It can never
 equal a labelled digest, so an old cache snapshot reads as changed and is
 reparsed. That fails toward extra work, never toward suppression.
@@ -57,8 +65,8 @@ reparsed. That fails toward extra work, never toward suppression.
 
 ### Agent
 
-- [ ] After a colliding edit, does `safe_read` return the new content instead
-      of `REREAD_UNCHANGED`?
+- [ ] After a colliding edit, does `safe_read` answer with a diff against the
+      prior observation instead of `REREAD_UNCHANGED`?
 - [ ] After a colliding edit, does `file_outline` reparse instead of
       returning `cacheHit: true`?
 - [ ] Does an unchanged reread still hit the cache?
@@ -85,8 +93,9 @@ reparsed. That fails toward extra work, never toward suppression.
 
 1. `ObservationCache.check` reports a miss, with the prior observation as
    stale, for the colliding pair.
-2. `RepoWorkspace.safeRead` returns `content` for the second file after the
-   first was read, and `fileOutline` does not report `cacheHit`.
+2. After the first file was read, `RepoWorkspace.safeRead` of the second file
+   returns a `diff` projection, not `REREAD_UNCHANGED`, and `fileOutline` does
+   not report `cacheHit`.
 3. Identical content still reports a cache hit.
 4. A string with a lone surrogate and the same string with U+FFFD in its
    place have different identities.
@@ -100,7 +109,8 @@ collision cases fail: the cache reports a hit. The unchanged-reread and
 lone-surrogate cases pass on `main`; they guard criteria 3 and 4 against the
 new encoding.
 
-GREEN: replace FNV-1a with the labelled SHA-256 digest.
+GREEN: replace FNV-1a with the labelled SHA-256 digest, and add a case that
+checks `hashContent` against `node:crypto` SHA-256 of the UTF-8 bytes.
 
 Validation: the focused test file and the existing knowledge-map, cache and
 safe-read tests in the isolated runner, `pnpm typecheck`, `pnpm lint`,

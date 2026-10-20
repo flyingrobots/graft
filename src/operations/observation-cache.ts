@@ -2,15 +2,38 @@
 // Observation cache — tracks file content seen by the agent
 // ---------------------------------------------------------------------------
 
+import { sha256Hex } from "../contracts/sha256.js";
 import type { OutlineEntry, JumpEntry } from "../parser/types.js";
 
+// In a `u` regex a surrogate pair is one code point, so `\p{Cs}` matches only
+// lone surrogates.
+const LONE_SURROGATE = /\p{Cs}/u;
+
+/**
+ * Content identity for "unchanged" decisions.
+ *
+ * Well-formed content is identified by the SHA-256 of its UTF-8 bytes. Read
+ * paths decode observed bytes strictly and keep any BOM, so this is the
+ * SHA-256 of the observed bytes. A string with a lone surrogate has no
+ * faithful UTF-8 encoding (it would alias U+FFFD), so it is identified by its
+ * UTF-16LE code units under a different label. The labels keep the two
+ * domains disjoint: distinct strings never share an identity.
+ */
 export function hashContent(content: string): string {
-  let hash = 2166136261;
-  for (let index = 0; index < content.length; index++) {
-    hash ^= content.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
+  if (!LONE_SURROGATE.test(content)) {
+    return `sha256:${sha256Hex(new TextEncoder().encode(content))}`;
   }
-  return (hash >>> 0).toString(16).padStart(8, "0");
+  return `sha256-utf16le:${sha256Hex(utf16leCodeUnits(content))}`;
+}
+
+function utf16leCodeUnits(content: string): Uint8Array {
+  const bytes = new Uint8Array(content.length * 2);
+  for (let index = 0; index < content.length; index++) {
+    const unit = content.charCodeAt(index);
+    bytes[index * 2] = unit & 0xff;
+    bytes[index * 2 + 1] = unit >>> 8;
+  }
+  return bytes;
 }
 
 export interface ObservationSnapshot {

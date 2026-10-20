@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { CanonicalJsonCodec } from "../../../src/adapters/canonical-json.js";
 import { RepoWorkspace } from "../../../src/index.js";
@@ -37,6 +38,16 @@ describe("operations: observation cache content identity", () => {
     expect(cache.check("/repo/limit.ts", BEFORE).hit).toBe(true);
   });
 
+  it("identifies well-formed content by the SHA-256 of its UTF-8 bytes", () => {
+    // The read path decodes observed bytes strictly and keeps any BOM, so this
+    // is the SHA-256 of the observed bytes, the identity a delivery ledger uses.
+    const samples = ["", BEFORE, AFTER, "\uFEFFconst é = '😀';\n", "x".repeat(70_000)];
+    for (const sample of samples) {
+      const expected = createHash("sha256").update(Buffer.from(sample, "utf8")).digest("hex");
+      expect(hashContent(sample)).toBe(`sha256:${expected}`);
+    }
+  });
+
   it("does not alias a lone surrogate with the replacement character", () => {
     // UTF-8 encoding maps a lone surrogate to U+FFFD's bytes; content identity
     // must not inherit that alias for strings that are not well-formed.
@@ -56,8 +67,10 @@ describe("operations: observation cache content identity", () => {
     files["/repo/limit.ts"] = `${AFTER}\n`;
     const changed = await workspace.safeRead({ path: "limit.ts" });
 
-    expect(changed.projection).not.toBe("cache_hit");
-    expect(changed).toMatchObject({ projection: "content", content: `${AFTER}\n` });
+    // A changed reread is answered with a diff against the prior observation,
+    // never with REREAD_UNCHANGED.
+    expect(changed.projection).toBe("diff");
+    expect(changed).not.toMatchObject({ reason: "REREAD_UNCHANGED" });
   });
 
   it("does not serve a stale outline after a colliding edit", async () => {
