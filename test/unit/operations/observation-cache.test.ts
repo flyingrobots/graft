@@ -15,6 +15,7 @@ function workspaceOver(files: Record<string, string>): RepoWorkspace {
     projectRoot: "/repo",
     fs: new FakeFileSystem(files),
     codec: new CanonicalJsonCodec(),
+    resolvePath: (input) => `/repo/${input}`,
   });
 }
 
@@ -39,7 +40,7 @@ describe("operations: observation cache content identity", () => {
   it("does not alias a lone surrogate with the replacement character", () => {
     // UTF-8 encoding maps a lone surrogate to U+FFFD's bytes; content identity
     // must not inherit that alias for strings that are not well-formed.
-    expect(hashContent("a\uD800b")).not.toBe(hashContent("a�b"));
+    expect(hashContent("a\uD800b")).not.toBe(hashContent("a\uFFFDb"));
     expect(hashContent("a\uDC00b")).not.toBe(hashContent("a\uD800b"));
   });
 
