@@ -152,9 +152,72 @@ export interface DeadSymbolReadingPayload {
   readonly removedInCommit: string;
 }
 
+/**
+ * Why material is outside a reading's declared domain. Excluded material is
+ * left out deliberately, so it does not make a reading partial; it is counted
+ * so the answer says what it does not cover.
+ */
+export type StructuralCoverageExclusionReason =
+  | "unsupported-language"
+  | "submodule";
+
+/**
+ * Why material the declared domain requires is not covered. Any missing
+ * material makes a reading partial.
+ *
+ * - `not-indexed`: an indexable file at the basis commit has never been
+ *   indexed.
+ * - `indexed-content-differs`: the file was last indexed at a commit whose
+ *   content for that path differs from the basis commit's.
+ * - `deleted-since-indexed`: the index still holds a file that is not at the
+ *   basis commit, so its symbols' removal was never recorded.
+ */
+export type StructuralCoverageMissingReason =
+  | "not-indexed"
+  | "indexed-content-differs"
+  | "deleted-since-indexed";
+
+/** Maximum number of missing paths a coverage report names. */
+export const STRUCTURAL_COVERAGE_MISSING_PATH_LIMIT = 100;
+
+/**
+ * How much of a declared domain a reading's evidence covers. A reading is
+ * complete only when `missingFiles` is zero; it never depends on `excluded`.
+ */
+export interface StructuralReadingCoverage {
+  /** The commit the domain is declared against. */
+  readonly basisCommit: string;
+  /**
+   * The declared domain. `indexable-files-at-basis`: every file tracked at the
+   * basis commit whose language the structural index parses.
+   */
+  readonly domain: "indexable-files-at-basis";
+  readonly domainFiles: number;
+  /** Domain files whose indexed content equals the basis commit's. */
+  readonly coveredFiles: number;
+  /** Material deliberately outside the domain, counted by reason. */
+  readonly excluded: readonly {
+    readonly reason: StructuralCoverageExclusionReason;
+    readonly files: number;
+  }[];
+  /** Number of files the domain requires that the evidence does not cover. */
+  readonly missingFiles: number;
+  /**
+   * The missing files, sorted by path. At most
+   * STRUCTURAL_COVERAGE_MISSING_PATH_LIMIT are named; `missingFiles` is the
+   * full count.
+   */
+  readonly missing: readonly {
+    readonly path: string;
+    readonly reason: StructuralCoverageMissingReason;
+  }[];
+}
+
 export interface DeadSymbolsReadingPayload {
   readonly symbols: readonly DeadSymbolReadingPayload[];
   readonly total: number;
+  /** Present when the substrate can state its coverage. */
+  readonly coverage?: StructuralReadingCoverage | undefined;
 }
 
 export interface StructuralReadingPort {

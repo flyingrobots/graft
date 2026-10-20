@@ -83,6 +83,17 @@ const deadSymbolFixtures = [
   },
 ] as const;
 
+// A partial coverage report, so round-trips carry a non-empty missing list.
+const coverageFixture = {
+  basisCommit: "0123456789abcdef0123456789abcdef01234567",
+  domain: "indexable-files-at-basis",
+  domainFiles: 3,
+  coveredFiles: 2,
+  excluded: [{ reason: "unsupported-language", files: 1 }],
+  missingFiles: 1,
+  missing: [{ path: "src/unindexed.ts", reason: "not-indexed" }],
+} as const;
+
 interface PortStubOverrides {
   readonly referenceCount?: number;
   readonly referencingFiles?: readonly string[];
@@ -112,6 +123,11 @@ function makePort(overrides: PortStubOverrides = {}): StructuralReadingPort {
           confidence: "complete" as const,
         })),
     findDeadSymbols: vi.fn(() => Promise.resolve([...(overrides.deadSymbols ?? deadSymbolFixtures)])),
+    readIndexCoverage: vi.fn(() => Promise.resolve({
+      ...coverageFixture,
+      excluded: [...coverageFixture.excluded],
+      missing: [...coverageFixture.missing],
+    })),
   });
 }
 

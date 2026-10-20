@@ -359,6 +359,22 @@ export const codeRefsProvenanceSchema = z.object({
   filesSearched: z.number().int().nonnegative(),
 }).strict();
 
+export const structuralReadingCoverageSchema = z.object({
+  basisCommit: z.string(),
+  domain: z.literal("indexable-files-at-basis"),
+  domainFiles: z.number().int().nonnegative(),
+  coveredFiles: z.number().int().nonnegative(),
+  excluded: z.array(z.object({
+    reason: z.enum(["unsupported-language", "submodule"]),
+    files: z.number().int().positive(),
+  }).strict()),
+  missingFiles: z.number().int().nonnegative(),
+  missing: z.array(z.object({
+    path: z.string(),
+    reason: z.enum(["not-indexed", "indexed-content-differs", "deleted-since-indexed"]),
+  }).strict()),
+}).strict();
+
 export const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -898,6 +914,7 @@ export const mcpFragmentSchemas = {
   precisionSymbolMatchSchema,
   codeRefsMatchSchema,
   codeRefsProvenanceSchema,
+  structuralReadingCoverageSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
   activityViewSchema,

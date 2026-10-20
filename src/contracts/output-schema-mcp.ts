@@ -32,6 +32,7 @@ const {
   precisionSymbolMatchSchema,
   codeRefsMatchSchema,
   codeRefsProvenanceSchema,
+  structuralReadingCoverageSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
   activityViewSchema,
@@ -540,6 +541,8 @@ export const mcpOutputBodySchemas = {
       removedInCommit: z.string(),
     }).strict()),
     total: z.number().int().nonnegative(),
+    residualPosture: z.enum(["complete", "partial", "plural", "budget-limited", "rights-limited", "unavailable"]),
+    coverage: structuralReadingCoverageSchema.optional(),
     summary: z.string(),
   }).strict(),
   knowledge_map: z.object({

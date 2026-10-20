@@ -4,6 +4,7 @@ import type {
   DeadSymbolsReadingPayload,
   DeadSymbolsReadingRequest,
   GitWarpEvidence,
+  StructuralReadingCoverage,
   StructuralReadingResidualPosture,
   StructuralReadingPort,
   StructuralReadingResult,
@@ -24,6 +25,7 @@ import {
   type DeadSymbol,
 } from "./dead-symbols.js";
 import type { WarpContext } from "./context.js";
+import { readIndexCoverage as defaultReadIndexCoverage } from "./index-coverage.js";
 
 export interface GitWarpStructuralReadingPortDeps {
   readonly projectRoot: string;
@@ -48,6 +50,11 @@ export interface GitWarpStructuralReadingPortDeps {
     ctx: WarpContext,
     options?: DeadSymbolsReadingRequest,
   ) => Promise<readonly DeadSymbol[]>;
+  readonly readIndexCoverage?: (opts: {
+    readonly cwd: string;
+    readonly git: GitClient;
+    readonly ctx: WarpContext;
+  }) => Promise<StructuralReadingCoverage>;
 }
 
 function translatedGitWarpEvidence(
@@ -105,6 +112,7 @@ export function createGitWarpStructuralReadingPort(
   const countSymbolReferencesFromGraph =
     deps.countSymbolReferencesFromGraph ?? defaultCountSymbolReferencesFromGraph;
   const findDeadSymbols = deps.findDeadSymbols ?? defaultFindDeadSymbols;
+  const readIndexCoverage = deps.readIndexCoverage ?? defaultReadIndexCoverage;
   const scopedAnalyses = new WeakMap<readonly string[], Map<string, Promise<CommittedReferenceAnalysis>>>();
   const countCommittedReferencesAtRef = deps.countCommittedReferencesAtRef ?? (async (request) => {
     const candidateTargetFilePaths = request.candidateTargetFilePaths ?? [request.filePath];
@@ -205,14 +213,18 @@ export function createGitWarpStructuralReadingPort(
         ? { maxCommits: request.maxCommits }
         : undefined;
       const symbols = await findDeadSymbols(warp, options);
+      // Dead symbols are found only among files the lazy index holds, so the
+      // reading is complete only when the index covers the declared domain.
+      const coverage = await readIndexCoverage({ cwd: deps.projectRoot, git: deps.git, ctx: warp });
 
       return {
         kind: "dead-symbols",
         freshness: "current",
-        residualPosture: "complete",
+        residualPosture: coverage.missingFiles === 0 ? "complete" : "partial",
         payload: {
           symbols,
           total: symbols.length,
+          coverage,
         },
         evidence: translatedGitWarpEvidence(
           deps,

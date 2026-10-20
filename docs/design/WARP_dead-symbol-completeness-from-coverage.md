@@ -115,7 +115,8 @@ block (roadmap A5) and is a non-goal here.
 
 - [ ] Recording removals for deleted files. Indexing does not process paths
       that are no longer tracked; the reading now reports them as missing
-      instead of hiding them. Fixing the indexer is a follow-on card.
+      instead of hiding them. Fixing the indexer is
+      `docs/method/backlog/bad-code/WARP_index-never-records-deleted-file-symbols.md`.
 - [ ] Coverage of history before a file was first indexed. Dead symbols are
       found within the history the index observed; the domain is the current
       tree.
