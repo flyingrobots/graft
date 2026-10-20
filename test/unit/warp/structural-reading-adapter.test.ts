@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GitClient } from "../../../src/ports/git.js";
 import type { PathOps } from "../../../src/ports/paths.js";
+import type { StructuralReadingCoverage } from "../../../src/ports/structural-reading.js";
 import type { WarpContext } from "../../../src/warp/context.js";
 import { createGitWarpStructuralReadingPort } from "../../../src/warp/structural-reading-adapter.js";
 
@@ -264,6 +265,7 @@ describe("git-warp structural reading adapter", () => {
   });
 
   it("labels dead-symbol readings as translated non-Continuum-native evidence", async () => {
+    const coverage = completeCoverage();
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",
       git,
@@ -280,6 +282,7 @@ describe("git-warp structural reading adapter", () => {
           removedInCommit: "abc123",
         },
       ])),
+      readIndexCoverage: vi.fn(() => Promise.resolve(coverage)),
     });
 
     const reading = await port.findDeadSymbols({ maxCommits: 3 });
@@ -295,6 +298,7 @@ describe("git-warp structural reading adapter", () => {
         },
       ],
       total: 1,
+      coverage,
     });
     expect(reading).toMatchObject({
       kind: "dead-symbols",
@@ -313,4 +317,59 @@ describe("git-warp structural reading adapter", () => {
       },
     });
   });
+
+  it("keeps a dead-symbol reading complete when only excluded material is uncovered", async () => {
+    const port = deadSymbolPortWithCoverage({
+      ...completeCoverage(),
+      excluded: [
+        { reason: "submodule", files: 1 },
+        { reason: "unsupported-language", files: 4 },
+      ],
+    });
+
+    const reading = await port.findDeadSymbols();
+
+    expect(reading.residualPosture).toBe("complete");
+  });
+
+  it("marks a dead-symbol reading partial when required coverage is missing", async () => {
+    const port = deadSymbolPortWithCoverage({
+      ...completeCoverage(),
+      coveredFiles: 1,
+      missingFiles: 1,
+      missing: [{ path: "src/unindexed.ts", reason: "not-indexed" }],
+    });
+
+    const reading = await port.findDeadSymbols();
+
+    expect(reading.residualPosture).toBe("partial");
+    expect(reading.payload.coverage?.missing).toEqual([
+      { path: "src/unindexed.ts", reason: "not-indexed" },
+    ]);
+  });
 });
+
+function completeCoverage(): StructuralReadingCoverage {
+  return {
+    basisCommit: "0123456789abcdef0123456789abcdef01234567",
+    domain: "indexable-files-at-basis",
+    domainFiles: 2,
+    coveredFiles: 2,
+    excluded: [{ reason: "unsupported-language", files: 1 }],
+    missingFiles: 0,
+    missing: [],
+  };
+}
+
+function deadSymbolPortWithCoverage(coverage: StructuralReadingCoverage) {
+  return createGitWarpStructuralReadingPort({
+    projectRoot: "/repo",
+    git,
+    pathOps,
+    getWarp: () => Promise.resolve(warp),
+    countSymbolReferencesFromGraph: vi.fn(),
+    countCommittedReferencesAtRef: vi.fn(),
+    findDeadSymbols: vi.fn(() => Promise.resolve([])),
+    readIndexCoverage: vi.fn(() => Promise.resolve(coverage)),
+  });
+}
