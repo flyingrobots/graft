@@ -22,18 +22,22 @@ class FallbackOnlyProcessRunner implements ProcessRunner {
 }
 
 /**
- * Reports one extra ripgrep match in a path that does not exist when the tool
+ * Reports one extra search match in a path that does not exist when the tool
  * loads it, as when a file is removed between the search and the policy read.
+ * Works for whichever engine answers: ripgrep, or grep when ripgrep is absent.
  */
 class VanishingMatchProcessRunner implements ProcessRunner {
-  constructor(private readonly vanishedLine: string) {}
+  constructor(private readonly vanishedPath: string, private readonly preview: string) {}
 
   run(request: ProcessRunRequest): ProcessRunResult {
     const result = nodeProcessRunner.run(request);
-    if (request.command !== "rg" || result.status !== 0) {
+    if ((request.command !== "rg" && request.command !== "grep") || result.status !== 0) {
       return result;
     }
-    return { ...result, stdout: `${result.stdout.trimEnd()}\n${this.vanishedLine}\n` };
+    const line = request.command === "rg"
+      ? `${this.vanishedPath}:3:1:${this.preview}`
+      : `${this.vanishedPath}:3:${this.preview}`;
+    return { ...result, stdout: `${result.stdout.trimEnd()}\n${line}\n` };
   }
 }
 
@@ -294,7 +298,7 @@ describe("mcp: code_refs", () => {
       git(tmpDir, "commit -m init");
 
       const server = createServerInRepo(tmpDir, {
-        processRunner: new VanishingMatchProcessRunner("vanished.ts:3:1:createSurface();"),
+        processRunner: new VanishingMatchProcessRunner("vanished.ts", "createSurface();"),
       });
       const result = parse(await server.callTool("code_refs", {
         query: "createSurface",
