@@ -269,6 +269,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Sludge scan no longer crashes on untyped JavaScript parameters**:
+  `doctor --sludge` failed with `Cannot read properties of undefined` as soon
+  as it reached a JavaScript function whose first parameter had no type
+  annotation, and that one file aborted the whole scan. web-tree-sitter
+  returns `undefined`, not `null`, for a field the node's type does not define
+  at all, and the detector only guarded against `null`. A whole-repository
+  scan of graft now completes.
+
 - **Tests never run a stale `dist/`**: a Vitest global setup rebuilds `dist/`
   with the repository's own build before any test starts, and before each
   watch-mode rerun, whenever it is

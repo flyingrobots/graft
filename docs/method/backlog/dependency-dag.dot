@@ -48,7 +48,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (37)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (40)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -66,10 +66,13 @@ digraph backlog {
     bad_code_CLEAN_moderate_dependency_advisories [label="CLEAN-moderate-dependency-advisories - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_node26_native_roaring_install [label="CLEAN-node26-native-roaring-install - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_pr_review_comments_not_actionability_typed [label="CLEAN-pr-review-comments-not-actionability-typed - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_read_tools_ignore_cwd [label="CLEAN-read-tools-ignore-cwd - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_receipt_cumulative_bytes_avoided_stays_zero [label="CLEAN-receipt-cumulative-bytes-avoided-stays-zero - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_safe_read_intent_is_decorative [label="CLEAN-safe-read-intent-is-decorative - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_sha256_stable_id_helper_duplication [label="CLEAN-sha256-stable-id-helper-duplication - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_sludge_scan_aborts_on_one_file [label="CLEAN-sludge-scan-aborts-on-one-file - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_sludge_untyped_parameter_crash [label="CLEAN-sludge-untyped-parameter-crash - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_test_cleanup_rejection_skips_caller_cleanup [label="CLEAN-test-cleanup-rejection-skips-caller-cleanup - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_committed_reference_scan_repeats_repository_analysis [label="committed-reference-scan-repeats-repository-analysis" fillcolor="#F6B3B3" penwidth=2]
