@@ -10,7 +10,7 @@ const FIXTURE = {
       kind: "function",
       filePath: "src/parser/legacy.ts",
       exported: true,
-      removedInCommit: "abc9999",
+      firstObservedAbsentAt: "abc9999",
     },
   ],
   symbolReferences: [

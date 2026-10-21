@@ -240,6 +240,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Dead symbols state their terms (schema `2.0.0`)**: `graft_dead_symbols`
+  and `struct_dead_symbols` return `residualPosture`, derived from
+  `currentTreeCoverage` (the indexable files at `HEAD` the index covers, with
+  excluded and missing files), and `history`, which states that the answer
+  examined only observed index history: how many indexed boundaries exist and
+  were compared, the earliest and latest examined, whether `maxCommits`
+  narrowed it, and that changes between boundaries are not observed. Each dead
+  symbol carries `lastObservedPresentAt` and `firstObservedAbsentAt` instead
+  of `removedInCommit`, which named the first absent boundary as though it
+  were the removing commit. `graft.mcp.graft_dead_symbols` and
+  `graft.cli.struct_dead_symbols` advance from `1.0.0` to `2.0.0`; strict
+  clients must select the v2 validators.
+
 - **`code_refs` reports what it left out (schema `3.0.0`)**: every response
   carries `skipped`, counting matches in files omitted for relevance
   (`BINARY`, `LOCKFILE`, `MINIFIED`, `BUILD_OUTPUT`, `GRAFTIGNORE`) or that
@@ -276,6 +289,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   lane instead of a `(repoId, writerId)` key and worktree root.
 
 ### Fixed
+
+- **Fallback reference counts no longer claim the requested revision**: when
+  the committed reference scan fails and the structural reading port answers
+  from WARP graph counts, the reading now reports `freshness: "incomparable"`
+  and a `warp-indexed-graph` basis that records the `requestedRef` without
+  claiming it, instead of `freshness: "current"` at the requested ref.
 
 - **`code_find` is no longer an oracle for secret files**: confidential files
   (`.env`, `.env.*` except `.example`, `*.pem`, `*.key`, `credentials.*`) are

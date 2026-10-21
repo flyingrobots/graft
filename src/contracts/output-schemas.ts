@@ -477,6 +477,32 @@ const codeRefsProvenanceSchema = z.object({
   filesSearched: z.number().int().nonnegative(),
 }).strict();
 
+const structuralReadingCoverageSchema = z.object({
+  basisCommit: z.string(),
+  domain: z.literal("indexable-files-at-basis"),
+  domainFiles: z.number().int().nonnegative(),
+  coveredFiles: z.number().int().nonnegative(),
+  excluded: z.array(z.object({
+    reason: z.enum(["unsupported-language", "submodule"]),
+    files: z.number().int().positive(),
+  }).strict()),
+  missingFiles: z.number().int().nonnegative(),
+  missing: z.array(z.object({
+    path: z.string(),
+    reason: z.enum(["not-indexed", "indexed-content-differs", "deleted-since-indexed"]),
+  }).strict()),
+}).strict();
+
+const observedIndexHistorySchema = z.object({
+  domain: z.literal("observed-index-history"),
+  indexedBoundaries: z.number().int().nonnegative(),
+  examinedBoundaries: z.number().int().nonnegative(),
+  earliestExamined: z.string().nullable(),
+  latestExamined: z.string().nullable(),
+  limitedByMaxCommits: z.boolean(),
+  unobserved: z.array(z.enum(["changes-between-boundaries", "history-before-earliest-boundary"])),
+}).strict();
+
 const codeRefsSkippedSchema = z.object({
   files: z.number().int().nonnegative(),
   matches: z.number().int().nonnegative(),
@@ -1397,9 +1423,13 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       kind: z.string(),
       filePath: z.string(),
       exported: z.boolean(),
-      removedInCommit: z.string(),
+      lastObservedPresentAt: z.string().optional(),
+      firstObservedAbsentAt: z.string(),
     }).strict()),
     total: z.number().int().nonnegative(),
+    residualPosture: z.enum(["complete", "partial", "plural", "budget-limited", "rights-limited", "unavailable"]),
+    currentTreeCoverage: structuralReadingCoverageSchema.optional(),
+    history: observedIndexHistorySchema.nullable(),
     summary: z.string(),
   }).strict(),
   knowledge_map: z.object({

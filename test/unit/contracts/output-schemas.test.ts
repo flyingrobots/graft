@@ -124,6 +124,9 @@ describe("contracts: output schemas", () => {
     ] as const) {
       expect(getCliOutputSchemaMeta(command).version, command).toBe("2.0.0");
     }
+    // Dead symbols gained posture, current-tree coverage and history terms (A4).
+    expect(getMcpOutputSchemaMeta("graft_dead_symbols").version).toBe("2.0.0");
+    expect(getCliOutputSchemaMeta("struct_dead_symbols").version).toBe("2.0.0");
     expect(getMcpOutputSchemaMeta("doctor").version).toBe("1.0.0");
     expect(getCliOutputSchemaMeta("diag_doctor").version).toBe("1.0.0");
   });

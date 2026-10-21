@@ -11,8 +11,10 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_up_next {
-    label="up-next (1)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="up-next (3)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
+    up_next_CORE_reference_counts_state_their_terms [label="CORE-reference-counts-state-their-terms - M" fillcolor="#E5E7EB" penwidth=2]
+    up_next_CORE_shared_answer_terms [label="CORE-shared-answer-terms - L" fillcolor="#E5E7EB" penwidth=2]
     up_next_CORE_structural_history_schema_and_echo_migration [label="CORE-structural-history-schema-and-echo-migration - XL" fillcolor="#E5E7EB" penwidth=2]
   }
 
@@ -48,7 +50,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (42)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (43)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -89,6 +91,7 @@ digraph backlog {
     bad_code_TEST_evidence_ledger_automation [label="TEST-evidence-ledger-automation - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_TEST_size_resource_enforcement [label="TEST-size-resource-enforcement - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_WARP_index_never_records_deleted_file_symbols [label="WARP-index-never-records-deleted-file-symbols - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_resident_count_is_not_a_memory_budget [label="WARP-resident-count-is-not-a-memory-budget - L" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_resident_owner_inventory [label="WARP-resident-owner-inventory - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_sidecar_retention_and_pruning [label="WARP-sidecar-retention-and-pruning - M" fillcolor="#F6B3B3" penwidth=2]
@@ -219,6 +222,7 @@ digraph backlog {
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> cool_ideas_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
+  up_next_CORE_reference_counts_state_their_terms -> up_next_CORE_shared_answer_terms [label="blocked_by"]
   v0_8_0_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
 
   subgraph cluster_legend {
