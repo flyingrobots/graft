@@ -1,8 +1,11 @@
 # Graft roadmap: onto Echo, with answers that state their terms
 
-**Status:** proposal for James to accept, amend or reject. It is not adopted
-yet, and it changes nothing that [`docs/BEARING.md`](docs/BEARING.md) has
-locked.
+**Status:** adopted 2026-10-21, with the external review's rulings applied
+(see "Review rulings"). Where the rulings and the original proposal differ,
+the rulings bind, including their MUST, SHOULD and DON'T boundaries. Adoption
+sets direction and order; it does not mark any item done except those listed
+as landed below. It changes nothing that [`docs/BEARING.md`](docs/BEARING.md)
+has locked.
 **Author:** Claude (Anthropic), 2026-10-19, written against Graft `origin/main`
 `1958a977`. Revised the same day to author Graft's causal parts in Edict.
 Revised 2026-10-21 to apply an external design review of the A1/A3/A4 packet
@@ -14,8 +17,9 @@ second track that makes every answer say how complete and how current it is.
 
 Each item below is meant to be one atomic, independently mergeable change,
 with its outcome, its prerequisites and why, and what proves it done. Item
-ids are for this document. When an item is adopted it becomes a METHOD
-backlog card (`docs/method/backlog/<lane>/<LEGEND>_<slug>.md`).
+ids are for this document. When an item is pulled into a cycle it becomes a
+METHOD backlog card (`docs/method/backlog/<lane>/<LEGEND>_<slug>.md`), if it
+does not have one already, and a design packet under `docs/design/`.
 
 ## Where Graft stands
 
@@ -119,7 +123,11 @@ prioritize identities, call relationships and versioned neighborhoods.
 Path forward:
 - **Now:** correct secret disclosure (A3, A3b), apply the schema bumps,
   qualify A4's temporal scope, and stop fallback readings from claiming an
-  unsupported basis. (Done on the A3, A4 and `code_find` branches.)
+  unsupported basis. (Landed on `main`: A1 in #266, A3 in #267, A3b in #268
+  and A4 in #269. The product-wide confidentiality claim stays incomplete
+  until the surfaces on
+  `docs/method/backlog/bad-code/CORE_confidential-content-surface-audit.md`
+  are fixed.)
 - **Next:** A4b, then consolidate the demonstrated answer contracts into A5.
 - **Alongside:** one pinned, recoverable workspace-observation slice through
   the real host (B1 below).
@@ -207,10 +215,13 @@ Path forward:
 This track is independent of the substrate. Do it first: it is cheap, and it
 makes Echo parity checkable.
 
+Landed on `main` (2026-10-21): A1 (#266), A3 (#267), A3b (#268) and A4 (#269).
+Open: A2, A4b, A5 and A6.
+
 | Id | Outcome | Prerequisites | Done when |
 | --- | --- | --- | --- |
-| A1 | The observation cache identifies content by SHA-256 (existing card `CORE_observation-cache-32-bit-content-hash`) | none | A test with the colliding pair above sees the second read as changed |
-| A2 | Reread suppression depends on a per-consumer delivery ledger, not a cache hit (existing card `CORE_reread-suppression-trusts-cache-as-delivery`, with the `CORE_unchanged-outline-notice` design) | A1, so the ledger's identity and the cache's agree | A cache filled by `file_outline` never suppresses a `safe_read` the consumer didn't receive |
+| A1 | The observation cache identifies content by SHA-256 (landed in #266; design `docs/design/CORE_observation-cache-32-bit-content-hash.md`) | none | A test with the colliding pair above sees the second read as changed |
+| A2 | Reread suppression depends on a per-consumer delivery ledger, not a cache hit (card `CORE_reread-suppression-trusts-cache-as-delivery` and the `CORE_unchanged-outline-notice` design, neither yet on `main`) | A1, so the ledger's identity and the cache's agree | A cache filled by `file_outline` never suppresses a `safe_read` the consumer didn't receive |
 | A3 | `code_refs` reports what it omitted for relevance (by count and reason) and never searches confidential files, counting them nowhere; schema `3.0.0` | none | Paired repositories differing only in a confidential file's content or existence answer identically, call for call, with visible, empty, refused, scoped and warm-cache calls; the advertised version's validator accepts the payload |
 | A3b | `code_find` never parses or returns confidential files, on the live and WARP paths | none (shares the policy refactor with A3; either may land first) | The same paired-repository property for `code_find` |
 | A4 | Dead symbols derive `complete` from current-tree coverage and state their history domain separately: observed index boundaries examined, and that changes between boundaries are unobserved; removals are located between boundaries, not at a claimed removing commit; fallback reference readings stop claiming the requested ref; schemas `2.0.0` | none | A partly indexed fixture reports `partial` and names the unindexed files; a symbol removed at an unindexed commit names the boundaries around it |
@@ -317,9 +328,10 @@ graph TD
   B3a --> C5
 ```
 
-These have no prerequisites and can start in parallel: A1, A3, A3b, A4, A4b
-and B1. None of them blocks another. A3 and A3b share one policy refactor
-commit; whichever lands second merges it cleanly.
+These had no prerequisites and could start in parallel: A1, A3, A3b, A4, A4b
+and B1. A1, A3, A3b and A4 have landed; A3 and A3b share one confidential-path
+classifier, `src/policy/confidential.ts`. A4b and B1 remain open and do not
+block each other.
 
 ## Decisions for James
 
