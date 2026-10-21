@@ -269,6 +269,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`code_find` is no longer an oracle for secret files**: confidential files
+  (`.env`, `.env.*` except `.example`, `*.pem`, `*.key`, `credentials.*`) are
+  never parsed on the live path, and their symbols are dropped from WARP-index
+  matches before any file is loaded, whatever reason their refusal would
+  display. Previously a query matching a symbol only in, for example,
+  `credentials.ts` returned a refusal naming that file with its size, while a
+  non-matching query returned zero matches.
+
 - **Sludge scan no longer crashes on untyped JavaScript parameters**:
   `doctor --sludge` failed with `Cannot read properties of undefined` as soon
   as it reached a JavaScript function whose first parameter had no type
