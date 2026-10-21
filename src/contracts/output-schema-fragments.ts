@@ -363,10 +363,17 @@ export const codeRefsSkippedSchema = z.object({
   files: z.number().int().nonnegative(),
   matches: z.number().int().nonnegative(),
   reasons: z.array(z.object({
-    reason: z.string(),
+    // Relevance omissions only: SECRET files are never searched.
+    reason: z.enum(["BINARY", "LOCKFILE", "MINIFIED", "BUILD_OUTPUT", "GRAFTIGNORE", "UNREADABLE"]),
     files: z.number().int().positive(),
     matches: z.number().int().positive(),
   }).strict()),
+}).strict();
+
+export const codeRefsContentDenialSchema = z.object({
+  classification: z.literal("SECRET"),
+  treatment: z.literal("not-searched"),
+  countsDisclosed: z.literal(false),
 }).strict();
 
 export const structuralRefusalSchema = z.object({
@@ -909,6 +916,7 @@ export const mcpFragmentSchemas = {
   codeRefsMatchSchema,
   codeRefsProvenanceSchema,
   codeRefsSkippedSchema,
+  codeRefsContentDenialSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
   activityViewSchema,

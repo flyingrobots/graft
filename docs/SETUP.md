@@ -570,7 +570,7 @@ add to `.claude/settings.local.json`:
 | `code_show` | Focus on a symbol by name and return its source with line metadata. |
 | `code_find` | Search symbols across the project by approximate name or glob pattern, with optional kind/path filter. |
 | `graft_difficulty` | Refactor difficulty score for a symbol. Combines WARP churn curvature with reference-edge friction and returns the scalar plus the underlying factors. |
-| `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. Matches in refused or unreadable files are counted in `skipped` by reason. |
+| `code_refs` | Search import sites, callsites, property access, or literal text references with explicit text-fallback provenance, pattern, and scope. Matches in files omitted for relevance or unreadable are counted in `skipped` by reason; confidential (`SECRET`) files are never searched or counted. |
 | `activity_view` | Bounded between-commit activity for the active workspace, including commit anchor, grouped recent activity, and degraded posture. |
 | `doctor` | Runtime health check including layered-worldline repo state and burden summary. Accepts an opt-in `sludge` scan for parser-backed structural smell signals. |
 | `stats` | Decision metrics for the current server session, including burden by tool kind. |

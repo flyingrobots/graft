@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import * as fs from "node:fs";
 import * as path from "node:path";
 import { MCP_TOOL_NAMES, getMcpOutputSchema, getMcpOutputSchemaMeta } from "../../../src/contracts/output-schemas.js";
@@ -7,15 +7,17 @@ import { createServerInRepo, parse } from "../../helpers/mcp.js";
 
 // Oracle: noninterference. Two repositories identical except for one
 // confidential file must produce identical code_refs responses, call for
-// call, on one server whose caches are warmed by earlier calls. Only fields
-// that are inherently per-call and never derived from repository content are
-// removed before comparison: the receipt's session id, trace id, timestamp and
-// latency. Sizes, counts, digests, paths, refusals and errors are compared as
-// emitted. A finite set of fixtures supports the property; it does not prove
-// it for every repository.
+// call, on one server whose caches are warmed by earlier calls. The wall clock
+// is pinned so the receipt's timestamp and latency are constant; otherwise a
+// latency gaining a digit changes the receipt's byte counts. Only the random
+// session and trace ids, which are fixed-length and never derived from
+// repository content, are replaced before comparison. Sizes, ratios, counts,
+// digests, paths, refusals and errors are compared as emitted. A finite set of
+// fixtures supports the property; it does not prove it for every repository.
 
 const PROBE = "API_TOKEN";
-const PER_CALL_RECEIPT_FIELDS = ["sessionId", "traceId", "ts", "latencyMs"] as const;
+const PER_CALL_RECEIPT_FIELDS = ["sessionId", "traceId"] as const;
+const PINNED_WALL_CLOCK = new Date("2026-10-21T00:00:00.000Z");
 
 interface Fixture {
   /** Repository files other than the confidential one. */
@@ -32,7 +34,13 @@ interface ProbeCall {
 
 const cleanups: string[] = [];
 
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(PINNED_WALL_CLOCK);
+});
+
 afterEach(async () => {
+  vi.useRealTimers();
   for (const dir of cleanups.splice(0)) await cleanupTestRepo(dir);
 });
 

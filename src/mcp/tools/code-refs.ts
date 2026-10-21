@@ -8,6 +8,7 @@ import {
   loadFileContent,
   normalizeRepoPath,
 } from "./precision.js";
+import { CONTENT_DENIAL_REASON, isConfidentialPath } from "../../policy/confidential.js";
 
 const CODE_REFS_MODES = ["text", "import", "call", "property"] as const;
 
@@ -377,8 +378,48 @@ function runTextFallbackSearch(
 /** Reason recorded for a matched file that could not be loaded. */
 const UNREADABLE_REASON = "UNREADABLE";
 
+/**
+ * Why a match was left out of the visible answer. Relevance bans omit noise
+ * and may be counted; the content-denial ban (SECRET) is never searched, so it
+ * can never be a skip reason.
+ */
+const RELEVANCE_OMISSION_REASONS = [
+  "BINARY",
+  "LOCKFILE",
+  "MINIFIED",
+  "BUILD_OUTPUT",
+  "GRAFTIGNORE",
+] as const;
+
+type RelevanceOmissionReason = typeof RELEVANCE_OMISSION_REASONS[number];
+type SkipReason = RelevanceOmissionReason | typeof UNREADABLE_REASON;
+
+function isRelevanceOmissionReason(reason: string): reason is RelevanceOmissionReason {
+  return RELEVANCE_OMISSION_REASONS.some((candidate) => candidate === reason);
+}
+
+function relevanceOmissionReason(filePath: string, reason: string): RelevanceOmissionReason {
+  if (!isRelevanceOmissionReason(reason)) {
+    // Confidential files are removed before the search runs, so a refusal here
+    // is always a relevance ban. Anything else means the prefilter and the
+    // policy disagree; fail closed rather than count it.
+    throw new Error(`code_refs: unexpected refusal ${reason} for searched file ${filePath}`);
+  }
+  return reason;
+}
+
+/**
+ * The rule every answer states about confidential files. It is the same for
+ * every repository and query, so it discloses nothing about them.
+ */
+const CONTENT_DENIAL_TERMS = Object.freeze({
+  classification: CONTENT_DENIAL_REASON,
+  treatment: "not-searched",
+  countsDisclosed: false,
+} as const);
+
 interface SkippedReasonSummary {
-  readonly reason: string;
+  readonly reason: SkipReason;
   readonly files: number;
   readonly matches: number;
 }
@@ -391,9 +432,9 @@ interface SkippedSummary {
 
 /** Counts matches dropped from an answer, by the reason their file was skipped. */
 class SkippedMatchTally {
-  private readonly byReason = new Map<string, { files: Set<string>; matches: number }>();
+  private readonly byReason = new Map<SkipReason, { files: Set<string>; matches: number }>();
 
-  add(filePath: string, reason: string): void {
+  add(filePath: string, reason: SkipReason): void {
     let entry = this.byReason.get(reason);
     if (entry === undefined) {
       entry = { files: new Set<string>(), matches: 0 };
@@ -433,13 +474,16 @@ export const codeRefsTool: ToolDefinition = {
       const pattern = buildCodeRefsPattern(request);
       const repoState = ctx.getRepoState();
       const layer = repoState.dirty ? "workspace_overlay" : "ref_view";
-      const filePaths = (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths;
+      const candidatePaths = (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths;
+      // Confidential content must never influence the answer, so confidential
+      // files never reach the search engine and are counted nowhere.
+      const filePaths = candidatePaths.filter((filePath) => !isConfidentialPath(filePath));
       const fallback = runTextFallbackSearch(ctx.projectRoot, pattern, filePaths, ctx.process);
 
       const visibleMatches: CodeRefsMatch[] = [];
       const skipped = new SkippedMatchTally();
       const fileCache = new Map<string, string>();
-      const refusedFiles = new Map<string, string>();
+      const refusedFiles = new Map<string, SkipReason>();
       let firstRefusal:
         | {
           path: string;
@@ -471,9 +515,10 @@ export const codeRefsTool: ToolDefinition = {
 
         const refusal = evaluatePrecisionPolicy(ctx, match.path, content);
         if (refusal !== null) {
+          const reason = relevanceOmissionReason(match.path, refusal.reason);
           firstRefusal ??= refusal;
-          refusedFiles.set(match.path, refusal.reason);
-          skipped.add(match.path, refusal.reason);
+          refusedFiles.set(match.path, reason);
+          skipped.add(match.path, reason);
           continue;
         }
 
@@ -492,6 +537,7 @@ export const codeRefsTool: ToolDefinition = {
           next: [...firstRefusal.next],
           actual: firstRefusal.actual,
           skipped: skipped.summary(),
+          contentDenial: CONTENT_DENIAL_TERMS,
           source: "text_fallback",
           provenance: {
             engine: fallback.engine,
@@ -514,6 +560,7 @@ export const codeRefsTool: ToolDefinition = {
         matches: visibleMatches,
         total: visibleMatches.length,
         skipped: skipped.summary(),
+        contentDenial: CONTENT_DENIAL_TERMS,
         source: "text_fallback",
         provenance: {
           engine: fallback.engine,
