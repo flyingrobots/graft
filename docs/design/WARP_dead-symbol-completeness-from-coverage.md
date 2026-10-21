@@ -65,10 +65,52 @@ These are different cases and are reported separately.
 A file counts as indexed only when its `file:` node carries `indexedCommit`;
 import resolution can name file nodes it never indexed.
 
+### History domain
+
+Dead symbols are derived from symbol sets observed at indexed commit
+boundaries, not from every Git commit. Current-tree coverage says nothing
+about history: every current file can be indexed while a function introduced
+and removed between two index observations never appears. The reading
+therefore states its history domain separately, in `history`:
+
+```json
+"history": {
+  "domain": "observed-index-history",
+  "indexedBoundaries": 3,
+  "examinedBoundaries": 2,
+  "earliestExamined": "<sha>",
+  "latestExamined": "<sha>",
+  "limitedByMaxCommits": true,
+  "unobserved": ["changes-between-boundaries", "history-before-earliest-boundary"]
+}
+```
+
+- `indexedBoundaries`: indexed commit boundaries the graph holds.
+- `examinedBoundaries`, `earliestExamined`, `latestExamined`: the boundaries
+  actually compared, after `maxCommits` scoping (including the boundary just
+  before the first scoped commit, which is the "before" side of its diff).
+- `unobserved` names what the history domain cannot see. It is constant today
+  and is stated so a consumer never infers that indexed history equals Git
+  history.
+
+This answers the history the reading examined; it does not index Git history.
+
+### Removal boundaries, not removing commits
+
+Each dead symbol carries `lastObservedPresentAt` (the last examined boundary
+where the symbol existed) and `firstObservedAbsentAt` (the first boundary
+where it was absent). The removal happened somewhere between them. The former
+`removedInCommit` named the absent boundary as if it were the removing commit,
+which the evidence does not establish; it is removed from the port, the Echo
+fakes and the tool output. `lastObservedPresentAt` is optional in the port
+because the Echo path does not carry it yet.
+
 ### Shape
 
-`DeadSymbolsReadingPayload` gains an optional `coverage`
-(`StructuralReadingCoverage` in `src/ports/structural-reading.ts`):
+`DeadSymbolsReadingPayload` gains `history` and an optional
+`currentTreeCoverage` (`StructuralReadingCoverage` in
+`src/ports/structural-reading.ts`, named `coverage` before the review so the
+two kinds of coverage stay distinct):
 `basisCommit`, `domain`, `domainFiles`, `coveredFiles`, `excluded` (by
 reason), `missingFiles`, and `missing` (path and reason, sorted by path, at
 most 100 named; `missingFiles` is the full count). It is in the payload, so the
@@ -81,6 +123,11 @@ The git-warp adapter sets `residualPosture` to `complete` exactly when
 renderer prints the completeness and the uncovered files.
 
 ### Reference counts
+
+Superseded in part by the review: reference counts get their own item, A4b
+(`docs/method/backlog/up-next/CORE_reference-counts-state-their-terms.md`).
+The fallback basis fix above lands here because it is a false claim in the
+port this branch already changes. The original reasoning follows.
 
 The roadmap groups reference counts with dead symbols. Their primary path, the
 committed reference scan, does not read the index: it reads every file at the
@@ -105,6 +152,12 @@ block (roadmap A5) and is a non-goal here.
       commit stays covered?
 - [ ] After a file is deleted, is it reported as `deleted-since-indexed`?
 - [ ] Does `graft_dead_symbols` return the posture and the coverage?
+- [ ] Does a dead symbol name the boundaries between which it was removed,
+      rather than claim a removing commit?
+- [ ] When a symbol is added and removed between two observations, does the
+      answer state that such changes are unobserved?
+- [ ] Does `maxCommits` show up as a narrowed examined history?
+- [ ] Does a fallback reference reading avoid claiming the requested ref?
 
 ### Human
 
@@ -117,9 +170,8 @@ block (roadmap A5) and is a non-goal here.
       that are no longer tracked; the reading now reports them as missing
       instead of hiding them. Fixing the indexer is
       `docs/method/backlog/bad-code/WARP_index-never-records-deleted-file-symbols.md`.
-- [ ] Coverage of history before a file was first indexed. Dead symbols are
-      found within the history the index observed; the domain is the current
-      tree.
+- [ ] Indexing Git history to observe every removal. The answer states the
+      history it examined instead.
 - [ ] Indexing on demand to make a reading complete.
 - [ ] Reference-count exclusions and the shared terms block (roadmap A5).
 - [ ] The Echo adapter, which is not wired.
@@ -132,9 +184,28 @@ block (roadmap A5) and is a non-goal here.
 3. Content changed since indexing is `indexed-content-differs`; unchanged
    content indexed earlier is covered.
 4. A deleted file the index still holds is `deleted-since-indexed`.
-5. `graft_dead_symbols` output carries `residualPosture` and `coverage`, and
-   both output schemas accept them.
+5. `graft_dead_symbols` output carries `residualPosture`,
+   `currentTreeCoverage` and `history`, advertises `2.0.0`, and the validator
+   that version names accepts it and rejects it without `history`;
+   `struct_dead_symbols` advertises `2.0.0`.
 6. The generated-model round-trip stays loss-free with a coverage report.
+7. Dead symbols carry `lastObservedPresentAt` and `firstObservedAbsentAt`,
+   and never `removedInCommit`.
+8. A fallback reference reading reports `freshness: "incomparable"` and a
+   `warp-indexed-graph` basis with `requestedRef`, never `ref`.
+
+## Review rulings (2026-10-21)
+
+An external review of this packet ruled ENHANCE: coverage of today's files is
+not coverage of their history. Before A4 is called complete it must state that
+the history domain is the observed index history with its boundaries and
+limits, keep current-tree and historical coverage separate, and stop implying
+that `removedInCommit` is the removing commit. All three are implemented
+above. It also required that fallback readings stop claiming an unsupported
+basis, implemented above, and approved bumping both dead-symbol schemas to
+`2.0.0`. Reference counts move to A4b; the review did not accept an automatic
+A4 to A4b dependency, because routing reference counts through the committed
+scan does not need A4's implementation.
 
 ## Test Strategy
 
@@ -152,6 +223,13 @@ GREEN: `src/warp/index-coverage.ts` computes the report from `git ls-tree` and
 the graph's `file:` nodes; the adapter derives the posture from it; the tool,
 schemas and renderer carry it. The renderer test and the generated-model
 parity stub gain the new fields.
+
+Review follow-up RED: `test/unit/warp/dead-symbol-history-terms.test.ts`
+indexes real repositories at chosen commits. On `98111ef0` the dead symbol
+carries `removedInCommit` equal to the first absent boundary, which is not the
+commit that removed it, and there is no `history`. The adapter test's fallback
+case expected `freshness: "current"` and the requested ref; it now expects the
+honest basis and fails.
 
 Validation: the focused files above plus `test/unit/warp/dead-symbols.test.ts`,
 `test/unit/cli/dead-symbols-render.test.ts`,
