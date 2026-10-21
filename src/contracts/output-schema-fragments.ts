@@ -375,6 +375,16 @@ export const structuralReadingCoverageSchema = z.object({
   }).strict()),
 }).strict();
 
+export const observedIndexHistorySchema = z.object({
+  domain: z.literal("observed-index-history"),
+  indexedBoundaries: z.number().int().nonnegative(),
+  examinedBoundaries: z.number().int().nonnegative(),
+  earliestExamined: z.string().nullable(),
+  latestExamined: z.string().nullable(),
+  limitedByMaxCommits: z.boolean(),
+  unobserved: z.array(z.enum(["changes-between-boundaries", "history-before-earliest-boundary"])),
+}).strict();
+
 export const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -915,6 +925,7 @@ export const mcpFragmentSchemas = {
   codeRefsMatchSchema,
   codeRefsProvenanceSchema,
   structuralReadingCoverageSchema,
+  observedIndexHistorySchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
   activityViewSchema,

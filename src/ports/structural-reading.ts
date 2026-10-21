@@ -71,6 +71,19 @@ export interface GitWarpCommittedBasis {
   readonly maxCommits?: number | undefined;
 }
 
+/**
+ * The lazily built WARP graph, as the index observed it. A reading answered
+ * from it is not at any one Git revision; `requestedRef` records what the
+ * caller asked for without claiming it.
+ */
+export interface GitWarpIndexedGraphBasis {
+  readonly kind: "warp-indexed-graph";
+  readonly projectRoot: string;
+  readonly requestedRef?: string | undefined;
+}
+
+export type GitWarpBasis = GitWarpCommittedBasis | GitWarpIndexedGraphBasis;
+
 export type GitWarpEvidenceSource = "warp-graph" | "committed-reference-scan";
 
 export type GitWarpEvidence =
@@ -91,7 +104,7 @@ export interface TranslatedSubstrateEvidence {
   readonly kind: "translated-substrate";
   readonly evidenceLabel: GitWarpStructuralReadingEvidenceLabel;
   readonly substrate: "git-warp";
-  readonly basis: GitWarpCommittedBasis;
+  readonly basis: GitWarpBasis;
   readonly evidence: GitWarpEvidence;
   readonly nativeContinuumWitness: false;
 }
@@ -149,7 +162,37 @@ export interface DeadSymbolReadingPayload {
   readonly kind: string;
   readonly filePath: string;
   readonly exported: boolean;
-  readonly removedInCommit: string;
+  /**
+   * The last examined index boundary where the symbol existed. Absent when
+   * the substrate does not report it.
+   */
+  readonly lastObservedPresentAt?: string | undefined;
+  /**
+   * The first examined index boundary where the symbol was absent. The
+   * removal happened at or before it; it is not necessarily the commit that
+   * removed the symbol.
+   */
+  readonly firstObservedAbsentAt: string;
+}
+
+/** What observing only indexed commit boundaries cannot see. */
+export type ObservedIndexHistoryGap =
+  | "changes-between-boundaries"
+  | "history-before-earliest-boundary";
+
+/**
+ * The history a dead-symbol reading examined. Dead symbols are derived from
+ * symbol sets observed at indexed commit boundaries, not from every Git
+ * commit; this is separate from current-tree coverage.
+ */
+export interface ObservedIndexHistoryTerms {
+  readonly domain: "observed-index-history";
+  readonly indexedBoundaries: number;
+  readonly examinedBoundaries: number;
+  readonly earliestExamined: string | null;
+  readonly latestExamined: string | null;
+  readonly limitedByMaxCommits: boolean;
+  readonly unobserved: readonly ObservedIndexHistoryGap[];
 }
 
 /**
@@ -216,8 +259,13 @@ export interface StructuralReadingCoverage {
 export interface DeadSymbolsReadingPayload {
   readonly symbols: readonly DeadSymbolReadingPayload[];
   readonly total: number;
-  /** Present when the substrate can state its coverage. */
-  readonly coverage?: StructuralReadingCoverage | undefined;
+  /**
+   * How much of the current tree the evidence covers. Present when the
+   * substrate can state it. Says nothing about history.
+   */
+  readonly currentTreeCoverage?: StructuralReadingCoverage | undefined;
+  /** The history examined. Present when the substrate can state it. */
+  readonly history?: ObservedIndexHistoryTerms | undefined;
 }
 
 export interface StructuralReadingPort {

@@ -11,14 +11,14 @@ const DEAD_SYMBOLS = [
     kind: "function",
     filePath: "src/zoo/zebra.ts",
     exported: true,
-    removedInCommit: "fff0001",
+    firstObservedAbsentAt: "fff0001",
   },
   {
     name: "aardvarkHelper",
     kind: "function",
     filePath: "src/zoo/aardvark.ts",
     exported: false,
-    removedInCommit: "fff0002",
+    firstObservedAbsentAt: "fff0002",
   },
 ] as const;
 

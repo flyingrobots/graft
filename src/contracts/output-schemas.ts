@@ -493,6 +493,16 @@ const structuralReadingCoverageSchema = z.object({
   }).strict()),
 }).strict();
 
+const observedIndexHistorySchema = z.object({
+  domain: z.literal("observed-index-history"),
+  indexedBoundaries: z.number().int().nonnegative(),
+  examinedBoundaries: z.number().int().nonnegative(),
+  earliestExamined: z.string().nullable(),
+  latestExamined: z.string().nullable(),
+  limitedByMaxCommits: z.boolean(),
+  unobserved: z.array(z.enum(["changes-between-boundaries", "history-before-earliest-boundary"])),
+}).strict();
+
 const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -1394,11 +1404,13 @@ const mcpOutputBodySchemas: Record<McpToolName, z.ZodType> = {
       kind: z.string(),
       filePath: z.string(),
       exported: z.boolean(),
-      removedInCommit: z.string(),
+      lastObservedPresentAt: z.string().optional(),
+      firstObservedAbsentAt: z.string(),
     }).strict()),
     total: z.number().int().nonnegative(),
     residualPosture: z.enum(["complete", "partial", "plural", "budget-limited", "rights-limited", "unavailable"]),
-    coverage: structuralReadingCoverageSchema.optional(),
+    currentTreeCoverage: structuralReadingCoverageSchema.optional(),
+    history: observedIndexHistorySchema.nullable(),
     summary: z.string(),
   }).strict(),
   knowledge_map: z.object({

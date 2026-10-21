@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GitClient } from "../../../src/ports/git.js";
 import type { PathOps } from "../../../src/ports/paths.js";
-import type { StructuralReadingCoverage } from "../../../src/ports/structural-reading.js";
+import type {
+  ObservedIndexHistoryTerms,
+  StructuralReadingCoverage,
+} from "../../../src/ports/structural-reading.js";
 import type { WarpContext } from "../../../src/warp/context.js";
 import { createGitWarpStructuralReadingPort } from "../../../src/warp/structural-reading-adapter.js";
 
@@ -270,6 +273,7 @@ describe("git-warp structural reading adapter", () => {
 
   it("labels dead-symbol readings as translated non-Continuum-native evidence", async () => {
     const coverage = completeCoverage();
+    const history = observedHistory();
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",
       git,
@@ -283,10 +287,12 @@ describe("git-warp structural reading adapter", () => {
           kind: "function",
           filePath: "src/api.ts",
           exported: true,
-          removedInCommit: "abc123",
+          lastObservedPresentAt: "abc000",
+          firstObservedAbsentAt: "abc123",
         },
       ])),
       readIndexCoverage: vi.fn(() => Promise.resolve(coverage)),
+      readObservedIndexHistory: vi.fn(() => Promise.resolve(history)),
     });
 
     const reading = await port.findDeadSymbols({ maxCommits: 3 });
@@ -298,11 +304,13 @@ describe("git-warp structural reading adapter", () => {
           kind: "function",
           filePath: "src/api.ts",
           exported: true,
-          removedInCommit: "abc123",
+          lastObservedPresentAt: "abc000",
+          firstObservedAbsentAt: "abc123",
         },
       ],
       total: 1,
-      coverage,
+      currentTreeCoverage: coverage,
+      history,
     });
     expect(reading).toMatchObject({
       kind: "dead-symbols",
@@ -347,7 +355,7 @@ describe("git-warp structural reading adapter", () => {
     const reading = await port.findDeadSymbols();
 
     expect(reading.residualPosture).toBe("partial");
-    expect(reading.payload.coverage?.missing).toEqual([
+    expect(reading.payload.currentTreeCoverage?.missing).toEqual([
       { path: "src/unindexed.ts", reason: "not-indexed" },
     ]);
   });
@@ -365,6 +373,18 @@ function completeCoverage(): StructuralReadingCoverage {
   };
 }
 
+function observedHistory(): ObservedIndexHistoryTerms {
+  return {
+    domain: "observed-index-history",
+    indexedBoundaries: 3,
+    examinedBoundaries: 3,
+    earliestExamined: "abc000",
+    latestExamined: "abc123",
+    limitedByMaxCommits: false,
+    unobserved: ["changes-between-boundaries", "history-before-earliest-boundary"],
+  };
+}
+
 function deadSymbolPortWithCoverage(coverage: StructuralReadingCoverage) {
   return createGitWarpStructuralReadingPort({
     projectRoot: "/repo",
@@ -375,5 +395,6 @@ function deadSymbolPortWithCoverage(coverage: StructuralReadingCoverage) {
     countCommittedReferencesAtRef: vi.fn(),
     findDeadSymbols: vi.fn(() => Promise.resolve([])),
     readIndexCoverage: vi.fn(() => Promise.resolve(coverage)),
+    readObservedIndexHistory: vi.fn(() => Promise.resolve(observedHistory())),
   });
 }

@@ -134,7 +134,10 @@ not general-purpose lint findings.
 from indexed WARP history and not subsequently re-added. Human output is
 intended for cleanup and API-surface shrinkage review; JSON output keeps
 the schema-validated `graft.cli.struct_dead_symbols` payload backed by
-the `graft_dead_symbols` MCP peer.
+the `graft_dead_symbols` MCP peer. Both state the indexed history they examined
+and how much of the current tree the index covers; a removal is located
+between two observed index boundaries, not at a named removing commit
+(schema `2.0.0`).
 
 `graft symbol history <symbol> [--path <path>] [--json]` renders the
 same provenance-backed history as `graft symbol blame`, with a

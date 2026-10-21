@@ -72,14 +72,16 @@ const deadSymbolFixtures = [
     kind: "interface",
     filePath: "src/a.ts",
     exported: false,
-    removedInCommit: "def4567",
+    lastObservedPresentAt: "aaa0001",
+    firstObservedAbsentAt: "def4567",
   },
   {
     name: "oldHelper",
     kind: "function",
     filePath: "src/old.ts",
     exported: true,
-    removedInCommit: "abc1234",
+    lastObservedPresentAt: "aaa0001",
+    firstObservedAbsentAt: "abc1234",
   },
 ] as const;
 
@@ -92,6 +94,17 @@ const coverageFixture = {
   excluded: [{ reason: "unsupported-language", files: 1 }],
   missingFiles: 1,
   missing: [{ path: "src/unindexed.ts", reason: "not-indexed" }],
+} as const;
+
+// A history narrowed by maxCommits, so round-trips carry every history term.
+const historyFixture = {
+  domain: "observed-index-history",
+  indexedBoundaries: 4,
+  examinedBoundaries: 3,
+  earliestExamined: "aaa0001",
+  latestExamined: "abc1234",
+  limitedByMaxCommits: true,
+  unobserved: ["changes-between-boundaries", "history-before-earliest-boundary"],
 } as const;
 
 interface PortStubOverrides {
@@ -127,6 +140,10 @@ function makePort(overrides: PortStubOverrides = {}): StructuralReadingPort {
       ...coverageFixture,
       excluded: [...coverageFixture.excluded],
       missing: [...coverageFixture.missing],
+    })),
+    readObservedIndexHistory: vi.fn(() => Promise.resolve({
+      ...historyFixture,
+      unobserved: [...historyFixture.unobserved],
     })),
   });
 }

@@ -115,7 +115,10 @@ function deadSymbolsPayload(
         kind: textOf(entry["kind"]),
         filePath: textOf(entry["filePath"]),
         exported: entry["exported"] === true,
-        removedInCommit: textOf(entry["removedInCommit"]),
+        firstObservedAbsentAt: textOf(entry["firstObservedAbsentAt"]),
+        ...(typeof entry["lastObservedPresentAt"] === "string"
+          ? { lastObservedPresentAt: entry["lastObservedPresentAt"] }
+          : {}),
       });
     }
   }

@@ -3,7 +3,9 @@ import type { PathOps } from "../ports/paths.js";
 import type {
   DeadSymbolsReadingPayload,
   DeadSymbolsReadingRequest,
+  GitWarpBasis,
   GitWarpEvidence,
+  ObservedIndexHistoryTerms,
   StructuralReadingCoverage,
   StructuralReadingResidualPosture,
   StructuralReadingPort,
@@ -22,6 +24,7 @@ import {
 } from "./warp-reference-count.js";
 import {
   findDeadSymbols as defaultFindDeadSymbols,
+  readObservedIndexHistory as defaultReadObservedIndexHistory,
   type DeadSymbol,
 } from "./dead-symbols.js";
 import type { WarpContext } from "./context.js";
@@ -55,23 +58,33 @@ export interface GitWarpStructuralReadingPortDeps {
     readonly git: GitClient;
     readonly ctx: WarpContext;
   }) => Promise<StructuralReadingCoverage>;
+  readonly readObservedIndexHistory?: (
+    ctx: WarpContext,
+    options?: DeadSymbolsReadingRequest,
+  ) => Promise<ObservedIndexHistoryTerms>;
+}
+
+function committedHistoryBasis(
+  deps: Pick<GitWarpStructuralReadingPortDeps, "projectRoot">,
+  basis: { readonly ref?: string | undefined; readonly maxCommits?: number | undefined },
+): GitWarpBasis {
+  return {
+    kind: "git-committed-history",
+    projectRoot: deps.projectRoot,
+    ...(basis.ref !== undefined ? { ref: basis.ref } : {}),
+    ...(basis.maxCommits !== undefined ? { maxCommits: basis.maxCommits } : {}),
+  };
 }
 
 function translatedGitWarpEvidence(
-  deps: Pick<GitWarpStructuralReadingPortDeps, "projectRoot">,
-  basis: { readonly ref?: string | undefined; readonly maxCommits?: number | undefined },
+  basis: GitWarpBasis,
   evidence: GitWarpEvidence,
 ): TranslatedSubstrateEvidence {
   return {
     kind: "translated-substrate",
     evidenceLabel: "fallback-translated",
     substrate: "git-warp",
-    basis: {
-      kind: "git-committed-history",
-      projectRoot: deps.projectRoot,
-      ...(basis.ref !== undefined ? { ref: basis.ref } : {}),
-      ...(basis.maxCommits !== undefined ? { maxCommits: basis.maxCommits } : {}),
-    },
+    basis,
     evidence,
     nativeContinuumWitness: false,
   };
@@ -113,6 +126,7 @@ export function createGitWarpStructuralReadingPort(
     deps.countSymbolReferencesFromGraph ?? defaultCountSymbolReferencesFromGraph;
   const findDeadSymbols = deps.findDeadSymbols ?? defaultFindDeadSymbols;
   const readIndexCoverage = deps.readIndexCoverage ?? defaultReadIndexCoverage;
+  const readObservedIndexHistory = deps.readObservedIndexHistory ?? defaultReadObservedIndexHistory;
   const scopedAnalyses = new WeakMap<readonly string[], Map<string, Promise<CommittedReferenceAnalysis>>>();
   const countCommittedReferencesAtRef = deps.countCommittedReferencesAtRef ?? (async (request) => {
     const candidateTargetFilePaths = request.candidateTargetFilePaths ?? [request.filePath];
@@ -156,6 +170,8 @@ export function createGitWarpStructuralReadingPort(
       let payload: SymbolReferenceReadingPayload;
       let source: "warp-graph" | "committed-reference-scan";
       let residualPosture: StructuralReadingResidualPosture;
+      let freshness: StructuralReadingResult<SymbolReferenceReadingPayload>["freshness"];
+      let basis: GitWarpBasis;
       let committedScanFailure: string | undefined;
 
       try {
@@ -173,6 +189,8 @@ export function createGitWarpStructuralReadingPort(
         payload = symbolReferencePayload(request.symbolName, committedResult);
         source = "committed-reference-scan";
         residualPosture = committedResult.confidence === "partial" ? "partial" : "complete";
+        freshness = "current";
+        basis = committedHistoryBasis(deps, { ref });
       } catch (error) {
         committedScanFailure = fallbackReason(error);
         const warp = await deps.getWarp();
@@ -184,16 +202,20 @@ export function createGitWarpStructuralReadingPort(
         payload = symbolReferencePayload(request.symbolName, graphResult);
         source = "warp-graph";
         residualPosture = "partial";
+        // The lazily built graph is not the requested ref: the reading cannot
+        // be compared to it, and its basis records the request without
+        // claiming it.
+        freshness = "incomparable";
+        basis = { kind: "warp-indexed-graph", projectRoot: deps.projectRoot, requestedRef: ref };
       }
 
       return {
         kind: "symbol-reference-count",
-        freshness: "current",
+        freshness,
         residualPosture,
         payload,
         evidence: translatedGitWarpEvidence(
-          deps,
-          { ref },
+          basis,
           {
             kind: "symbol-reference-count",
             source,
@@ -215,20 +237,24 @@ export function createGitWarpStructuralReadingPort(
       const symbols = await findDeadSymbols(warp, options);
       // Dead symbols are found only among files the lazy index holds, so the
       // reading is complete only when the index covers the declared domain.
-      const coverage = await readIndexCoverage({ cwd: deps.projectRoot, git: deps.git, ctx: warp });
+      // Coverage of the current tree is not coverage of history: removals are
+      // observed only between indexed boundaries, so the reading states the
+      // history it examined separately.
+      const currentTreeCoverage = await readIndexCoverage({ cwd: deps.projectRoot, git: deps.git, ctx: warp });
+      const history = await readObservedIndexHistory(warp, options);
 
       return {
         kind: "dead-symbols",
         freshness: "current",
-        residualPosture: coverage.missingFiles === 0 ? "complete" : "partial",
+        residualPosture: currentTreeCoverage.missingFiles === 0 ? "complete" : "partial",
         payload: {
           symbols,
           total: symbols.length,
-          coverage,
+          currentTreeCoverage,
+          history,
         },
         evidence: translatedGitWarpEvidence(
-          deps,
-          { maxCommits: request.maxCommits },
+          committedHistoryBasis(deps, { maxCommits: request.maxCommits }),
           {
             kind: "dead-symbols",
             source: "warp-graph",

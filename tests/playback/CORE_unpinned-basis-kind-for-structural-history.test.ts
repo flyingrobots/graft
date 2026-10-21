@@ -33,7 +33,7 @@ function unpinnedDeadSymbolsResult(): StructuralReadingResult<DeadSymbolsReading
           kind: "function",
           filePath: "src/old-helper.ts",
           exported: true,
-          removedInCommit: "abc1234",
+          firstObservedAbsentAt: "abc1234",
         },
       ],
       total: 1,

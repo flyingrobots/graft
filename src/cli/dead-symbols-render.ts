@@ -16,7 +16,20 @@ export function renderDeadSymbols(input: Record<string, unknown>): string {
     `completeness: ${model.residualPosture}`,
   ];
 
-  const coverage = model.coverage;
+  const history = model.history;
+  if (history === null) {
+    lines.push("history: not stated by the substrate");
+  } else {
+    lines.push(
+      `history: ${String(history.examinedBoundaries)} of ${String(history.indexedBoundaries)} index boundaries examined` +
+        (history.earliestExamined !== null && history.latestExamined !== null
+          ? ` (${history.earliestExamined}..${history.latestExamined})`
+          : ""),
+      `not observed: ${history.unobserved.join(", ")}`,
+    );
+  }
+
+  const coverage = model.currentTreeCoverage;
   if (coverage !== undefined) {
     lines.push(
       `coverage: ${String(coverage.coveredFiles)} of ${String(coverage.domainFiles)} indexable files at ${coverage.basisCommit}`,
@@ -38,7 +51,9 @@ export function renderDeadSymbols(input: Record<string, unknown>): string {
     lines.push("", "Symbols");
     for (const symbol of model.symbols) {
       lines.push(
-        `- ${symbol.filePath}: ${symbol.name} (${symbol.kind}, exported: ${String(symbol.exported)}, removed: ${symbol.removedInCommit})`,
+        `- ${symbol.filePath}: ${symbol.name} (${symbol.kind}, exported: ${String(symbol.exported)}, ` +
+          `removed after ${symbol.lastObservedPresentAt ?? "an unreported boundary"}, ` +
+          `absent by ${symbol.firstObservedAbsentAt})`,
       );
     }
   }
