@@ -22,8 +22,9 @@ reading:
 - `code_find` returns a refusal naming a confidential file, with its size,
   when a symbol query matches only inside it, and zero matches otherwise. That
   split is a query-controlled oracle over symbol names in files such as
-  `credentials.ts` or `credentials.json`. Fixed separately on
-  `claude/code-find-secret-prefilter`.
+  `credentials.ts` or `credentials.json`. Fixed by the `code_find`
+  confidential prefilter (`docs/design/CORE_code-find-confidential-prefilter.md`),
+  witnessed by `test/unit/mcp/code-find-confidentiality.test.ts`.
 - `safe_read`, `file_outline` and other read refusals report `actual.lines`
   and `actual.bytes` for a refused confidential file
   (`src/operations/safe-read.ts` copies `policy.actual` into every result).
@@ -35,8 +36,8 @@ reading:
   `code_find`'s WARP path and reference counts.
 - Coverage reports (A4) name missing files; a confidential path may be named.
 
-Only the first item has a failing witness so far. The others are inferred
-from the source.
+Only the first item had a failing witness, and it is fixed. The others are
+inferred from the source.
 
 ## Risk
 
