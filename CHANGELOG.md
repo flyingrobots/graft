@@ -240,6 +240,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`code_refs` reports what it left out (schema `3.0.0`)**: every response
+  carries `skipped`, counting matches in files omitted for relevance
+  (`BINARY`, `LOCKFILE`, `MINIFIED`, `BUILD_OUTPUT`, `GRAFTIGNORE`) or that
+  could not be loaded (`UNREADABLE`), by reason, and `contentDenial`, which
+  states that confidential (`SECRET`) files are not searched and not counted.
+  `graft.mcp.code_refs` advances from `2.0.0` to `3.0.0`; strict clients must
+  select the v3 validator.
+
 - **Actor-isolated WARP sidecars**: production MCP, daemon worker, persistent
   monitor, API, and graph-backed CLI paths persist WARP state in private bare
   repositories keyed by canonical repository, worktree, and actor identity.
@@ -268,6 +276,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   lane instead of a `(repoId, writerId)` key and worktree root.
 
 ### Fixed
+
+- **`code_refs` is no longer an oracle for secret files**: confidential files
+  (`.env`, `.env.*` except `.example`, `*.pem`, `*.key`, `credentials.*`) are
+  removed before the text search runs, whatever reason their refusal would
+  display, so `dist/.env` is excluded although it is refused as
+  `BUILD_OUTPUT`. Previously a query matching only a secret file returned a
+  refusal naming it with its size, while a non-matching query returned zero
+  matches, which let a caller test guesses at a secret's content.
+  `provenance.filesSearched` now counts only the files actually searched.
 
 - **A changed reread is never reported as unchanged by a hash collision**: the
   observation cache identified content by 32-bit FNV-1a, and two realistic

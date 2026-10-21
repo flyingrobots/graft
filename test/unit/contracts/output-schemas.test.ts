@@ -107,10 +107,11 @@ describe("contracts: output schemas", () => {
       "graft_map",
       "code_show",
       "code_find",
-      "code_refs",
     ] as const) {
       expect(getMcpOutputSchemaMeta(tool).version, tool).toBe("2.0.0");
     }
+    // code_refs gained skipped and contentDenial (A3); it has no CLI peer.
+    expect(getMcpOutputSchemaMeta("code_refs").version).toBe("3.0.0");
     for (const command of [
       "read_safe",
       "read_range",
