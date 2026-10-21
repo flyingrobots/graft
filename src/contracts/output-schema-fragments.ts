@@ -385,6 +385,23 @@ export const observedIndexHistorySchema = z.object({
   unobserved: z.array(z.enum(["changes-between-boundaries", "history-before-earliest-boundary"])),
 }).strict();
 
+export const codeRefsSkippedSchema = z.object({
+  files: z.number().int().nonnegative(),
+  matches: z.number().int().nonnegative(),
+  reasons: z.array(z.object({
+    // Relevance omissions only: SECRET files are never searched.
+    reason: z.enum(["BINARY", "LOCKFILE", "MINIFIED", "BUILD_OUTPUT", "GRAFTIGNORE", "UNREADABLE"]),
+    files: z.number().int().positive(),
+    matches: z.number().int().positive(),
+  }).strict()),
+}).strict();
+
+export const codeRefsContentDenialSchema = z.object({
+  classification: z.literal("SECRET"),
+  treatment: z.literal("not-searched"),
+  countsDisclosed: z.literal(false),
+}).strict();
+
 export const structuralRefusalSchema = z.object({
   path: z.string(),
   reason: z.string(),
@@ -926,6 +943,8 @@ export const mcpFragmentSchemas = {
   codeRefsProvenanceSchema,
   structuralReadingCoverageSchema,
   observedIndexHistorySchema,
+  codeRefsSkippedSchema,
+  codeRefsContentDenialSchema,
   structuralRefusalSchema,
   worldlineLayerSchema,
   activityViewSchema,

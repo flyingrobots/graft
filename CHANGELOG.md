@@ -253,6 +253,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   `graft.cli.struct_dead_symbols` advance from `1.0.0` to `2.0.0`; strict
   clients must select the v2 validators.
 
+- **`code_refs` reports what it left out (schema `3.0.0`)**: every response
+  carries `skipped`, counting matches in files omitted for relevance
+  (`BINARY`, `LOCKFILE`, `MINIFIED`, `BUILD_OUTPUT`, `GRAFTIGNORE`) or that
+  could not be loaded (`UNREADABLE`), by reason, and `contentDenial`, which
+  states that confidential (`SECRET`) files are not searched and not counted.
+  `graft.mcp.code_refs` advances from `2.0.0` to `3.0.0`; strict clients must
+  select the v3 validator.
+
 - **Actor-isolated WARP sidecars**: production MCP, daemon worker, persistent
   monitor, API, and graph-backed CLI paths persist WARP state in private bare
   repositories keyed by canonical repository, worktree, and actor identity.
@@ -287,6 +295,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   from WARP graph counts, the reading now reports `freshness: "incomparable"`
   and a `warp-indexed-graph` basis that records the `requestedRef` without
   claiming it, instead of `freshness: "current"` at the requested ref.
+
+- **`code_find` is no longer an oracle for secret files**: confidential files
+  (`.env`, `.env.*` except `.example`, `*.pem`, `*.key`, `credentials.*`) are
+  never parsed on the live path, and their symbols are dropped from WARP-index
+  matches before any file is loaded, whatever reason their refusal would
+  display. Previously a query matching a symbol only in, for example,
+  `credentials.ts` returned a refusal naming that file with its size, while a
+  non-matching query returned zero matches.
+
+- **`code_refs` is no longer an oracle for secret files**: confidential files
+  (`.env`, `.env.*` except `.example`, `*.pem`, `*.key`, `credentials.*`) are
+  removed before the text search runs, whatever reason their refusal would
+  display, so `dist/.env` is excluded although it is refused as
+  `BUILD_OUTPUT`. Previously a query matching only a secret file returned a
+  refusal naming it with its size, while a non-matching query returned zero
+  matches, which let a caller test guesses at a secret's content.
+  `provenance.filesSearched` now counts only the files actually searched.
+
+- **A changed reread is never reported as unchanged by a hash collision**: the
+  observation cache identified content by 32-bit FNV-1a, and two realistic
+  one-line files (`export const limit = 33149;` and
+  `export const limit = 908276;`) shared a hash, so `safe_read` answered
+  `REREAD_UNCHANGED` and `file_outline` served the old outline. Content is now
+  identified by `sha256:<hex>` over its UTF-8 bytes, the SHA-256 of the
+  observed bytes on the read path; a string with a lone surrogate is hashed as
+  UTF-16LE code units under `sha256-utf16le:` so it cannot alias U+FFFD.
+  Identities recorded before this change never match, so old entries are
+  reparsed rather than suppressed. The pure SHA-256 used by the review digest
+  moved to `src/contracts/sha256.ts` and is shared.
 
 - **Sludge scan no longer crashes on untyped JavaScript parameters**:
   `doctor --sludge` failed with `Cannot read properties of undefined` as soon

@@ -316,6 +316,17 @@ between them are not observed. A dead symbol's removal is located between
 the commit that removed it. `residualPosture` is relative to that declared
 domain. `history` is `null` when the substrate cannot state it.
 
+### `code_refs` schema 3.0.0
+
+`graft.mcp.code_refs` advertises schema `3.0.0`. Every response carries
+`skipped`, which counts matches omitted for relevance or because the file
+could not be loaded, by reason, and `contentDenial`, which states that
+confidential (`SECRET`) files are not searched and not counted. Consumers
+selecting validators by `_schema.version` must use v3. Confidentiality is
+decided by file name, independently of the reason a refusal displays.
+`.graftignore` is a relevance control: matches in `.graftignore`d files are
+counted, so it must not be used to protect secrets.
+
 ### Daemon status schema in v0.14.0
 
 `graft.mcp.daemon_status` advertises schema `2.0.0` for its strict output shape,

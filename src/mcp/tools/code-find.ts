@@ -3,6 +3,7 @@ import type { ToolDefinition, ToolContext, ToolHandler } from "../context.js";
 import { nodePathOps } from "../../adapters/node-paths.js";
 import { indexHead } from "../../warp/index-head.js";
 import { GitFileQuery, listGitFiles } from "./git-files.js";
+import { isConfidentialPath } from "../../policy/confidential.js";
 import {
   evaluatePrecisionPolicy,
   getIndexedCommitCeilings,
@@ -107,11 +108,18 @@ export async function runCodeFind(
   }
 
   if (source === "live") {
+    // Confidential content must never influence the answer, so confidential
+    // files are never parsed.
+    const candidatePaths = (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths;
     allMatches = await searchLiveSymbols(
       ctx,
-      (await listGitFiles(request.toProjectFileQuery(ctx.projectRoot), ctx.git)).paths,
+      candidatePaths.filter((filePath) => !isConfidentialPath(filePath)),
       precisionRequest,
     );
+  } else {
+    // The index may hold symbols parsed from confidential files; drop them
+    // before any file is loaded or any policy decides a refusal.
+    allMatches = allMatches.filter((match) => !isConfidentialPath(match.path));
   }
 
   const visibleMatches: PrecisionSymbolMatch[] = [];

@@ -21,6 +21,26 @@ class FallbackOnlyProcessRunner implements ProcessRunner {
   }
 }
 
+/**
+ * Reports one extra search match in a path that does not exist when the tool
+ * loads it, as when a file is removed between the search and the policy read.
+ * Works for whichever engine answers: ripgrep, or grep when ripgrep is absent.
+ */
+class VanishingMatchProcessRunner implements ProcessRunner {
+  constructor(private readonly vanishedPath: string, private readonly preview: string) {}
+
+  run(request: ProcessRunRequest): ProcessRunResult {
+    const result = nodeProcessRunner.run(request);
+    if ((request.command !== "rg" && request.command !== "grep") || result.status !== 0) {
+      return result;
+    }
+    const line = request.command === "rg"
+      ? `${this.vanishedPath}:3:1:${this.preview}`
+      : `${this.vanishedPath}:3:${this.preview}`;
+    return { ...result, stdout: `${result.stdout.trimEnd()}\n${line}\n` };
+  }
+}
+
 describe("mcp: code_refs", () => {
   it("finds import sites with explicit fallback provenance", async () => {
     const tmpDir = createTestRepo("graft-code-refs-import-");
@@ -215,6 +235,110 @@ describe("mcp: code_refs", () => {
       expect(result["projection"]).toBe("refused");
       expect(result["reason"]).toBe("GRAFTIGNORE");
       expect(result["source"]).toBe("text_fallback");
+    } finally {
+      await cleanupTestRepo(tmpDir);
+    }
+  });
+  it("reports nothing skipped when every match is visible", async () => {
+    const tmpDir = createTestRepo("graft-code-refs-skipped-none-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, "consumer.ts"), "createSurface();\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_refs", {
+        query: "createSurface",
+        mode: "call",
+      }));
+
+      expect(result["total"]).toBe(1);
+      expect(result["skipped"]).toEqual({ files: 0, matches: 0, reasons: [] });
+    } finally {
+      await cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("counts matches in refused files as skipped beside visible matches", async () => {
+    const tmpDir = createTestRepo("graft-code-refs-skipped-refused-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(
+        path.join(tmpDir, "generated", "client.ts"),
+        "createSurface();\nconst again = createSurface();\n",
+      );
+      fs.writeFileSync(path.join(tmpDir, "consumer.ts"), "createSurface();\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_refs", {
+        query: "createSurface",
+        mode: "call",
+      }));
+
+      expect(result["matches"]).toEqual([expect.objectContaining({ path: "consumer.ts" })]);
+      expect(result["total"]).toBe(1);
+      expect(result["skipped"]).toEqual({
+        files: 1,
+        matches: 2,
+        reasons: [{ reason: "GRAFTIGNORE", files: 1, matches: 2 }],
+      });
+    } finally {
+      await cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("counts matches in files that cannot be loaded as skipped", async () => {
+    const tmpDir = createTestRepo("graft-code-refs-skipped-unreadable-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, "consumer.ts"), "createSurface();\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir, {
+        processRunner: new VanishingMatchProcessRunner("vanished.ts", "createSurface();"),
+      });
+      const result = parse(await server.callTool("code_refs", {
+        query: "createSurface",
+        mode: "call",
+      }));
+
+      expect(result["matches"]).toEqual([expect.objectContaining({ path: "consumer.ts" })]);
+      expect(result["total"]).toBe(1);
+      expect(result["skipped"]).toEqual({
+        files: 1,
+        matches: 1,
+        reasons: [{ reason: "UNREADABLE", files: 1, matches: 1 }],
+      });
+    } finally {
+      await cleanupTestRepo(tmpDir);
+    }
+  });
+
+  it("states what it skipped when every match is refused", async () => {
+    const tmpDir = createTestRepo("graft-code-refs-skipped-all-refused-");
+    try {
+      fs.writeFileSync(path.join(tmpDir, ".graftignore"), "generated/**\n");
+      fs.mkdirSync(path.join(tmpDir, "generated"), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, "generated", "a.ts"), "createSurface();\n");
+      fs.writeFileSync(path.join(tmpDir, "generated", "b.ts"), "createSurface();\n");
+      git(tmpDir, "add -A");
+      git(tmpDir, "commit -m init");
+
+      const server = createServerInRepo(tmpDir);
+      const result = parse(await server.callTool("code_refs", {
+        query: "createSurface",
+        mode: "call",
+      }));
+
+      expect(result["projection"]).toBe("refused");
+      expect(result["skipped"]).toEqual({
+        files: 2,
+        matches: 2,
+        reasons: [{ reason: "GRAFTIGNORE", files: 2, matches: 2 }],
+      });
     } finally {
       await cleanupTestRepo(tmpDir);
     }
