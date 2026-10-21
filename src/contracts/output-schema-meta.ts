@@ -43,9 +43,10 @@ const workspaceRoutedCliCommands = new Set<CliCommandName>(WORKSPACE_ROUTED_CLI_
 export const mcpOutputSchemaMeta = Object.freeze(Object.fromEntries(
   MCP_TOOL_NAMES.map((tool) => [tool, Object.freeze({
     id: `graft.mcp.${tool}`,
-    version: tool === "file_outline"
-      ? OUTLINE_OUTPUT_SCHEMA_VERSION
-      : tool === "graft_review" || tool === "daemon_status" || workspaceRoutedMcpTools.has(tool)
+    version: tool === "file_outline" || tool === "code_refs"
+      ? OUTPUT_SCHEMA_V3_VERSION
+      : tool === "graft_review" || tool === "daemon_status" || tool === "graft_dead_symbols" ||
+          workspaceRoutedMcpTools.has(tool)
         ? OUTPUT_SCHEMA_V2_VERSION
         : OUTPUT_SCHEMA_VERSION,
   })]),
@@ -56,7 +57,8 @@ export const cliOutputSchemaMeta = Object.freeze(Object.fromEntries(
     id: `graft.cli.${command}`,
     version: command === "read_outline"
       ? OUTLINE_OUTPUT_SCHEMA_VERSION
-      : command === "struct_review" || workspaceRoutedCliCommands.has(command)
+      : command === "struct_review" || command === "struct_dead_symbols" ||
+          workspaceRoutedCliCommands.has(command)
         ? OUTPUT_SCHEMA_V2_VERSION
         : OUTPUT_SCHEMA_VERSION,
   })]),

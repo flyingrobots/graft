@@ -52,7 +52,7 @@ export interface FakeDeadSymbolFixture {
   readonly kind: string;
   readonly filePath: string;
   readonly exported: boolean;
-  readonly removedInCommit: string;
+  readonly firstObservedAbsentAt: string;
 }
 
 export interface FakeSymbolReferenceFixture {

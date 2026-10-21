@@ -2,6 +2,7 @@ import picomatch from "picomatch";
 import type { PolicyInput, PolicyOptions, ReasonCode, GovernorDepth } from "./types.js";
 import { ContentResult, OutlineResult, RefusedResult } from "./types.js";
 import type { PolicyResult } from "./types.js";
+import { isSecretFileName } from "./confidential.js";
 
 export const STATIC_THRESHOLDS = { lines: 150, bytes: 12288 } as const;
 
@@ -23,13 +24,6 @@ const LOCKFILE_NAMES = new Set([
 ]);
 
 const BUILD_OUTPUT_PREFIXES = ["dist/", "build/", ".next/", "out/", "target/"];
-
-const SECRET_PATTERNS: ((name: string) => boolean)[] = [
-  (n) => n === ".env" || (n.startsWith(".env.") && !n.endsWith(".example")),
-  (n) => n.endsWith(".pem"),
-  (n) => n.endsWith(".key"),
-  (n) => n.startsWith("credentials."),
-];
 
 function basename(path: string): string {
   const i = path.lastIndexOf("/");
@@ -80,14 +74,12 @@ function checkBan(path: string): { reason: ReasonCode; reasonDetail: string; nex
     }
   }
 
-  for (const check of SECRET_PATTERNS) {
-    if (check(name)) {
-      return {
-        reason: "SECRET",
-        reasonDetail: `${name} may contain secrets and should not be read`,
-        next: ["Check for a .example or template version"],
-      };
-    }
+  if (isSecretFileName(name)) {
+    return {
+      reason: "SECRET",
+      reasonDetail: `${name} may contain secrets and should not be read`,
+      next: ["Check for a .example or template version"],
+    };
   }
 
   return undefined;

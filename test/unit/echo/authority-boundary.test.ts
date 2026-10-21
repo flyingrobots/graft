@@ -51,7 +51,7 @@ describe("echo authority boundary", () => {
             kind: "function",
             filePath: "src/old-helper.ts",
             exported: true,
-            removedInCommit: "abc1234",
+            firstObservedAbsentAt: "abc1234",
           },
         ],
       },

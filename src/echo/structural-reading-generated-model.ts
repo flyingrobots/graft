@@ -6,7 +6,7 @@
 // StructuralBasis) triple and back, loss-free.
 //
 // Folding contract: the generated v0.2 schema has no typed columns for the
-// port's translated-substrate residue (GitWarpCommittedBasis projectRoot /
+// port's translated-substrate residue (GitWarpBasis projectRoot /
 // base / maxCommits, and the GitWarpEvidence discriminant). That residue is
 // re-expressed verbatim as canonical JSON in the evidence `summary` field, so
 // the (reading, evidence) pair alone reconstructs the port result. The same
@@ -44,7 +44,7 @@ import {
   isFallbackTranslatedEvidence,
   isGitWarpImportedEvidence,
   toGeneratedStructuralEvidenceKind,
-  type GitWarpCommittedBasis,
+  type GitWarpBasis,
   type GitWarpEvidence,
   type GitWarpStructuralReadingEvidenceLabel,
   type StructuralReadingFreshness,
@@ -188,7 +188,7 @@ function requireTranslatedSubstrateEvidence(
 }
 
 interface TranslatedSubstrateFacts {
-  readonly basis: GitWarpCommittedBasis;
+  readonly basis: GitWarpBasis;
   readonly evidence: GitWarpEvidence;
 }
 
@@ -205,7 +205,7 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
     new GeneratedModelMappingError(
       "MALFORMED_EVIDENCE_SUMMARY",
       "Evidence summary does not carry canonical-JSON translated-substrate facts " +
-        `({ basis: GitWarpCommittedBasis, evidence: GitWarpEvidence }): ${detail}.`,
+        `({ basis: GitWarpBasis, evidence: GitWarpEvidence }): ${detail}.`,
     );
 
   let parsed: unknown;
@@ -227,17 +227,22 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
         readonly base?: unknown;
         readonly head?: unknown;
         readonly maxCommits?: unknown;
+        readonly requestedRef?: unknown;
       }
     | undefined;
-  if (
-    basis?.kind !== "git-committed-history" ||
-    typeof basis.projectRoot !== "string" ||
-    !isOptionalString(basis.ref) ||
-    !isOptionalString(basis.base) ||
-    !isOptionalString(basis.head) ||
-    !isOptionalNumber(basis.maxCommits)
-  ) {
-    throw malformed("basis facts are not a GitWarpCommittedBasis");
+  const validCommittedBasis =
+    basis?.kind === "git-committed-history" &&
+    typeof basis.projectRoot === "string" &&
+    isOptionalString(basis.ref) &&
+    isOptionalString(basis.base) &&
+    isOptionalString(basis.head) &&
+    isOptionalNumber(basis.maxCommits);
+  const validIndexedGraphBasis =
+    basis?.kind === "warp-indexed-graph" &&
+    typeof basis.projectRoot === "string" &&
+    isOptionalString(basis.requestedRef);
+  if (!validCommittedBasis && !validIndexedGraphBasis) {
+    throw malformed("basis facts are not a GitWarpBasis");
   }
 
   const evidence = candidate.evidence as
@@ -264,7 +269,7 @@ function parseTranslatedSubstrateFacts(summary: string): TranslatedSubstrateFact
   }
 
   return {
-    basis: candidate.basis as GitWarpCommittedBasis,
+    basis: candidate.basis as GitWarpBasis,
     evidence: candidate.evidence as GitWarpEvidence,
   };
 }
@@ -312,14 +317,16 @@ function validatePayloadShape(kind: StructuralReadingKind, payload: unknown): vo
         readonly kind?: unknown;
         readonly filePath?: unknown;
         readonly exported?: unknown;
-        readonly removedInCommit?: unknown;
+        readonly lastObservedPresentAt?: unknown;
+        readonly firstObservedAbsentAt?: unknown;
       };
       return (
         typeof entry.name === "string" &&
         typeof entry.kind === "string" &&
         typeof entry.filePath === "string" &&
         typeof entry.exported === "boolean" &&
-        typeof entry.removedInCommit === "string"
+        isOptionalString(entry.lastObservedPresentAt) &&
+        typeof entry.firstObservedAbsentAt === "string"
       );
     })
   ) {
@@ -400,8 +407,11 @@ export function toGeneratedStructuralReading<TPayload>(
     evidenceLabel: sourceEvidence.evidenceLabel,
     residue: residueCanonicalJson,
   });
-  const commitId = normalizeBasisString(basisFacts.head);
-  const refName = normalizeBasisString(basisFacts.ref);
+  // An indexed-graph basis is not at any Git revision: its requested ref is
+  // recorded in the basis facts but never promoted to the basis's ref.
+  const committed = basisFacts.kind === "git-committed-history" ? basisFacts : undefined;
+  const commitId = normalizeBasisString(committed?.head);
+  const refName = normalizeBasisString(committed?.ref);
   const readingId = deriveId("reading", {
     repositoryId: ctx.repositoryId,
     basisId,
@@ -420,7 +430,9 @@ export function toGeneratedStructuralReading<TPayload>(
     refName,
     echoHeadId: null,
     importBatchId: null,
-    summary: `git-warp committed-history basis for ${basisFacts.projectRoot}`,
+    summary: committed !== undefined
+      ? `git-warp committed-history basis for ${basisFacts.projectRoot}`
+      : `git-warp indexed-graph basis for ${basisFacts.projectRoot}, not at a Git revision`,
   };
 
   const evidence: GeneratedStructuralReadingEvidence = {

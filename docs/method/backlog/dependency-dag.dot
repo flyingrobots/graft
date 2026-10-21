@@ -11,8 +11,10 @@ digraph backlog {
   nodesep=0.2
 
   subgraph cluster_up_next {
-    label="up-next (1)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="up-next (3)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
+    up_next_CORE_reference_counts_state_their_terms [label="CORE-reference-counts-state-their-terms - M" fillcolor="#E5E7EB" penwidth=2]
+    up_next_CORE_shared_answer_terms [label="CORE-shared-answer-terms - L" fillcolor="#E5E7EB" penwidth=2]
     up_next_CORE_structural_history_schema_and_echo_migration [label="CORE-structural-history-schema-and-echo-migration - XL" fillcolor="#E5E7EB" penwidth=2]
   }
 
@@ -48,7 +50,7 @@ digraph backlog {
   }
 
   subgraph cluster_bad_code {
-    label="bad-code (37)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="bad-code (43)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     bad_code_CLEAN_backlog_dag_unresolved_internal_dependencies [label="CLEAN-backlog-dag-unresolved-internal-dependencies - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_canonical_codec_seams_diverge [label="CLEAN-canonical-codec-seams-diverge - M" fillcolor="#F6B3B3" penwidth=2]
@@ -66,13 +68,18 @@ digraph backlog {
     bad_code_CLEAN_moderate_dependency_advisories [label="CLEAN-moderate-dependency-advisories - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_node26_native_roaring_install [label="CLEAN-node26-native-roaring-install - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_pr_review_comments_not_actionability_typed [label="CLEAN-pr-review-comments-not-actionability-typed - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_read_tools_ignore_cwd [label="CLEAN-read-tools-ignore-cwd - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_receipt_cumulative_bytes_avoided_stays_zero [label="CLEAN-receipt-cumulative-bytes-avoided-stays-zero - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_remaining_structural_warp_reads_bypass_structural_reading_port [label="CLEAN-remaining-structural-warp-reads-bypass-structural-reading-port - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_safe_read_intent_is_decorative [label="CLEAN-safe-read-intent-is-decorative - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_sha256_stable_id_helper_duplication [label="CLEAN-sha256-stable-id-helper-duplication - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_sludge_scan_aborts_on_one_file [label="CLEAN-sludge-scan-aborts-on-one-file - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CLEAN_sludge_untyped_parameter_crash [label="CLEAN-sludge-untyped-parameter-crash - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_technical_teardown_contract_ledger_can_stale_without_tests [label="CLEAN-technical-teardown-contract-ledger-can-stale-without-tests - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CLEAN_test_cleanup_rejection_skips_caller_cleanup [label="CLEAN-test-cleanup-rejection-skips-caller-cleanup - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_committed_reference_scan_repeats_repository_analysis [label="committed-reference-scan-repeats-repository-analysis" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CORE_code_find_answers_from_partial_lazy_index [label="CORE-code-find-answers-from-partial-lazy-index - S" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_CORE_confidential_content_surface_audit [label="CORE-confidential-content-surface-audit - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CORE_daemon_partial_startup_resource_cleanup [label="CORE-daemon-partial-startup-resource-cleanup - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CORE_daemon_queue_admission_needs_byte_limits [label="CORE-daemon-queue-admission-needs-byte-limits - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_CORE_daemon_root_crash_residue_beyond_claim_tombstones [label="CORE-daemon-root-crash-residue-beyond-claim-tombstones - S" fillcolor="#F6B3B3" penwidth=2]
@@ -84,13 +91,14 @@ digraph backlog {
     bad_code_TEST_evidence_ledger_automation [label="TEST-evidence-ledger-automation - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_TEST_size_resource_enforcement [label="TEST-size-resource-enforcement - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_bijou_local_history_stale_after_branch_transition [label="WARP-bijou-local-history-stale-after-branch-transition - M" fillcolor="#F6B3B3" penwidth=2]
+    bad_code_WARP_index_never_records_deleted_file_symbols [label="WARP-index-never-records-deleted-file-symbols - S" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_resident_count_is_not_a_memory_budget [label="WARP-resident-count-is-not-a-memory-budget - L" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_resident_owner_inventory [label="WARP-resident-owner-inventory - M" fillcolor="#F6B3B3" penwidth=2]
     bad_code_WARP_sidecar_retention_and_pruning [label="WARP-sidecar-retention-and-pruning - M" fillcolor="#F6B3B3" penwidth=2]
   }
 
   subgraph cluster_cool_ideas {
-    label="Cool Ideas (93)" labeljust=l fontsize=9 fontcolor="#555555"
+    label="Cool Ideas (94)" labeljust=l fontsize=9 fontcolor="#555555"
     style=rounded color="#cccccc" bgcolor="#fafafa"
     cool_ideas_bounded_neighborhood_for_references [label="bounded-neighborhood-for-references - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CI_001_causal_collapse_visualizer [label="CI-001-causal-collapse-visualizer - L" fillcolor="#D4E8F7" penwidth=1]
@@ -105,6 +113,7 @@ digraph backlog {
     cool_ideas_CORE_backlog_retirement_assistant [label="CORE-backlog-retirement-assistant - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_capture_range [label="CORE-capture-range - S" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_code_lawyer_local_pr_audit_command [label="CORE-code-lawyer-local-pr-audit-command - L" fillcolor="#D4E8F7" penwidth=1]
+    cool_ideas_CORE_confidential_graftignore_patterns [label="CORE-confidential-graftignore-patterns" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_constructor_in_disguise_lint [label="CORE-constructor-in-disguise-lint - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_context_budget_forecasting [label="CORE-context-budget-forecasting - M" fillcolor="#D4E8F7" penwidth=1]
     cool_ideas_CORE_conversation_primer [label="CORE-conversation-primer - M" fillcolor="#D4E8F7" penwidth=1]
@@ -213,6 +222,7 @@ digraph backlog {
   external_git_warp_observer_geometry_ladder__Rung_2_4_ -> cool_ideas_CORE_migrate_to_slice_first_reads [label="blocked_by_external" style=dashed color="#4477AA"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_auto_breaking_change_detection [label="blocked_by" style=dashed color="#CC3333"]
   unresolved_CLEAN_CODE_export_diff_semver_signature_as_patch -> cool_ideas_WARP_semantic_merge_conflict_prediction [label="blocked_by" style=dashed color="#CC3333"]
+  up_next_CORE_reference_counts_state_their_terms -> up_next_CORE_shared_answer_terms [label="blocked_by"]
   v0_8_0_WARP_symbol_history_timeline -> cool_ideas_WARP_temporal_structural_search [label="blocked_by/blocking"]
 
   subgraph cluster_legend {

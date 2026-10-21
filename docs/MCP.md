@@ -304,6 +304,29 @@ if it is swapped for a symlink while Graft runs.
 - [Security Model](./strategy/security-model.md)
 - [Causal Provenance](./strategy/causal-provenance.md)
 
+### Dead symbols schema 2.0.0
+
+`graft.mcp.graft_dead_symbols` (and the CLI peer `graft.cli.struct_dead_symbols`)
+advertises schema `2.0.0`. Dead symbols are derived from symbol sets observed
+at indexed commit boundaries, so the answer carries two separate statements:
+`currentTreeCoverage`, how much of the indexable tree at `HEAD` the index
+covers, and `history`, which boundaries were examined and that changes
+between them are not observed. A dead symbol's removal is located between
+`lastObservedPresentAt` and `firstObservedAbsentAt`; neither is claimed to be
+the commit that removed it. `residualPosture` is relative to that declared
+domain. `history` is `null` when the substrate cannot state it.
+
+### `code_refs` schema 3.0.0
+
+`graft.mcp.code_refs` advertises schema `3.0.0`. Every response carries
+`skipped`, which counts matches omitted for relevance or because the file
+could not be loaded, by reason, and `contentDenial`, which states that
+confidential (`SECRET`) files are not searched and not counted. Consumers
+selecting validators by `_schema.version` must use v3. Confidentiality is
+decided by file name, independently of the reason a refusal displays.
+`.graftignore` is a relevance control: matches in `.graftignore`d files are
+counted, so it must not be used to protect secrets.
+
 ### Daemon status schema in v0.14.0
 
 `graft.mcp.daemon_status` advertises schema `2.0.0` for its strict output shape,
