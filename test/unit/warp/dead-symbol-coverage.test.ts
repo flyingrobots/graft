@@ -68,7 +68,7 @@ describe("warp: dead-symbol reading coverage", { timeout: 20000 }, () => {
     const reading = await portFor(ctx).findDeadSymbols();
 
     expect(reading.residualPosture).toBe("partial");
-    expect(reading.payload.coverage).toEqual({
+    expect(reading.payload.currentTreeCoverage).toEqual({
       basisCommit: head,
       domain: "indexable-files-at-basis",
       domainFiles: 2,
@@ -87,7 +87,7 @@ describe("warp: dead-symbol reading coverage", { timeout: 20000 }, () => {
     const reading = await portFor(ctx).findDeadSymbols();
 
     expect(reading.residualPosture).toBe("complete");
-    expect(reading.payload.coverage).toMatchObject({
+    expect(reading.payload.currentTreeCoverage).toMatchObject({
       domainFiles: 2,
       coveredFiles: 2,
       excluded: [{ reason: "unsupported-language", files: 1 }],
@@ -110,7 +110,7 @@ describe("warp: dead-symbol reading coverage", { timeout: 20000 }, () => {
     const reading = await portFor(ctx).findDeadSymbols();
 
     expect(reading.residualPosture).toBe("partial");
-    expect(reading.payload.coverage).toMatchObject({
+    expect(reading.payload.currentTreeCoverage).toMatchObject({
       domainFiles: 3,
       coveredFiles: 2,
       missingFiles: 1,
@@ -130,7 +130,7 @@ describe("warp: dead-symbol reading coverage", { timeout: 20000 }, () => {
     const reading = await portFor(ctx).findDeadSymbols();
 
     expect(reading.residualPosture).toBe("partial");
-    expect(reading.payload.coverage).toMatchObject({
+    expect(reading.payload.currentTreeCoverage).toMatchObject({
       domainFiles: 1,
       coveredFiles: 1,
       missingFiles: 1,
@@ -145,7 +145,7 @@ describe("warp: dead-symbol reading coverage", { timeout: 20000 }, () => {
     const result = parse(await server.callTool("graft_dead_symbols", {}));
 
     expect(result["residualPosture"]).toBe("partial");
-    expect(result["coverage"]).toMatchObject({
+    expect(result["currentTreeCoverage"]).toMatchObject({
       domainFiles: 2,
       coveredFiles: 0,
       missingFiles: 2,

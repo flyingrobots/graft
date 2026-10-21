@@ -56,6 +56,9 @@ describe("git-warp structural reading adapter", () => {
     expect(graphCount).not.toHaveBeenCalled();
   });
 
+  // Oracle: a fallback reading describes the basis it actually answered at.
+  // The lazily built WARP graph is not the requested ref, so the reading may
+  // not claim to be current at that ref.
   it("retains WARP graph reference counts as partial evidence when the committed scan fails", async () => {
     const port = createGitWarpStructuralReadingPort({
       projectRoot: "/repo",
@@ -84,7 +87,7 @@ describe("git-warp structural reading adapter", () => {
     });
     expect(reading).toMatchObject({
       kind: "symbol-reference-count",
-      freshness: "current",
+      freshness: "incomparable",
       residualPosture: "partial",
       evidence: {
         kind: "translated-substrate",
@@ -92,9 +95,9 @@ describe("git-warp structural reading adapter", () => {
         substrate: "git-warp",
         nativeContinuumWitness: false,
         basis: {
-          kind: "git-committed-history",
+          kind: "warp-indexed-graph",
           projectRoot: "/repo",
-          ref: "HEAD",
+          requestedRef: "HEAD",
         },
         evidence: {
           kind: "symbol-reference-count",
@@ -105,6 +108,7 @@ describe("git-warp structural reading adapter", () => {
         },
       },
     });
+    expect(reading.evidence).not.toHaveProperty("basis.ref");
   });
 
   it("normalizes blank reference-count request refs to HEAD", async () => {
