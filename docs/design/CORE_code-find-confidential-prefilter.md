@@ -103,5 +103,4 @@ full suite, `pnpm typecheck`, `pnpm lint`, `git diff --check`.
 
 ## Retro
 
-Not yet written; this branch has no PR. Before a PR opens, the local retro
-must record the validation evidence, per `METHOD.md`.
+`docs/method/retro/CORE_code-find-confidential-prefilter/retro.md`.
