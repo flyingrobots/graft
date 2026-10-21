@@ -114,6 +114,7 @@ from that packet, not from an unrecorded chat plan.
 
 ### 3. The Direction
 - **`docs/BEARING.md`**: Current execution gravity and active tensions.
+- **`ROADMAP.md`**: Adopted plan beyond BEARING's locked slices (Tracks A, B, C), with the binding review rulings.
 - **`docs/method/backlog/`**: The active source of truth for pending work.
 - **`docs/design/`**: Active and landed cycle design documents.
 
