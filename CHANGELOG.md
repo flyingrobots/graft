@@ -286,6 +286,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   matches, which let a caller test guesses at a secret's content.
   `provenance.filesSearched` now counts only the files actually searched.
 
+- **A changed reread is never reported as unchanged by a hash collision**: the
+  observation cache identified content by 32-bit FNV-1a, and two realistic
+  one-line files (`export const limit = 33149;` and
+  `export const limit = 908276;`) shared a hash, so `safe_read` answered
+  `REREAD_UNCHANGED` and `file_outline` served the old outline. Content is now
+  identified by `sha256:<hex>` over its UTF-8 bytes, the SHA-256 of the
+  observed bytes on the read path; a string with a lone surrogate is hashed as
+  UTF-16LE code units under `sha256-utf16le:` so it cannot alias U+FFFD.
+  Identities recorded before this change never match, so old entries are
+  reparsed rather than suppressed. The pure SHA-256 used by the review digest
+  moved to `src/contracts/sha256.ts` and is shared.
+
 - **Sludge scan no longer crashes on untyped JavaScript parameters**:
   `doctor --sludge` failed with `Cannot read properties of undefined` as soon
   as it reached a JavaScript function whose first parameter had no type
