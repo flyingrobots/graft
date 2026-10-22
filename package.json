@@ -90,7 +90,7 @@
     "@flyingrobots/bijou-node": "^4.4.1",
     "@git-stunts/git-warp": "^16.0.0",
     "@git-stunts/plumbing": "^2.8.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
     "picomatch": "^4.0.4",
     "tree-sitter-graphql-grammar-wasm": "1.0.1",
     "tree-sitter-wasms": "0.1.13",
@@ -107,23 +107,23 @@
     "tsx": "^4.21.0",
     "typescript": "^6.0.2",
     "typescript-eslint": "^8.58.0",
-    "vite": "8.0.16",
-    "vitest": "^5.0.0"
+    "vite": "8.1.6",
+    "vitest": "^5.0.3"
   },
   "pnpm": {
     "onlyBuiltDependencies": [],
     "overrides": {
-      "vite": "8.0.16",
+      "vite": "8.1.6",
       "body-parser": "2.3.0",
-      "brace-expansion": "5.0.9",
+      "brace-expansion": "5.0.12",
       "esbuild": "0.28.2",
       "@hono/node-server": "1.19.15",
-      "hono": "4.13.1",
-      "fast-uri": "3.1.6",
-      "ip-address": "10.4.0",
+      "hono": "4.13.11",
+      "fast-uri": "3.1.8",
+      "ip-address": "10.7.4",
       "nanoid": "3.3.18",
       "postcss": "8.5.26",
-      "qs": "6.15.2",
+      "qs": "6.16.0",
       "tar": "7.5.22"
     }
   }
