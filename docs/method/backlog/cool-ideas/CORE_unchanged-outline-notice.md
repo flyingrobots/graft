@@ -60,6 +60,8 @@ this card. A design packet must settle the consumer-context and resend contract
 before implementation; changes to a public output schema need compatibility
 handling. No broader knowledge-map feature is required to land first.
 
+Design packet: [CORE_unchanged-outline-notice](../../../design/CORE_unchanged-outline-notice.md).
+
 Related: [Session knowledge map](CORE_session-knowledge-map.md). Both use
 observation history, but a knowledge-map tool is not a prerequisite for this
 single response behavior.
