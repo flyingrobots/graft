@@ -390,6 +390,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
   processes. Callers can no longer observe a partial sidecar or race its Git
   configuration.
 
+### Security
+
+- **Dependency advisories cleared**: `@modelcontextprotocol/sdk` is raised to
+  `^1.32.0` (resolving 1.32.1) and `vite` to `8.1.6`, and the transitive pins in
+  `pnpm.overrides` move to the first releases clear of every open advisory:
+  `hono` 4.13.11, `ip-address` 10.7.4, `fast-uri` 3.1.8, `brace-expansion`
+  5.0.12 and `qs` 6.16.0. `proxy-addr` (2.0.8), `source-map-js` (1.2.2) and
+  `@humanfs/node` (0.16.8) are updated in the lockfile within their parents'
+  ranges, and `vitest` is floored at `^5.0.3` for the patched `@vitest/mocker`.
+  The SDK's 1.32 same-origin redirect policy does not affect Graft: its HTTP
+  client transports only talk to the daemon over a local socket at a fixed URL.
+
 ### Documentation
 
 - **Modular Graft design packet** (`docs/design/CORE_modular-graft-runtime-and-library.md`):
